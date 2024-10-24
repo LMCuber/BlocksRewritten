@@ -1,7 +1,12 @@
 from pyengine.ecs import *
 from pyengine.pgbasics import *
 from dataclasses import dataclass
+from pathlib import Path
 import pygame
+from . import blocks
+
+
+del Image
 
 
 @component
@@ -15,21 +20,22 @@ class Velocity(list):
 
 
 @component
-class Surface:
-    def __init__(self, size, color):
-        self.surf = pygame.Surface(size)
-        self.surf.fill(color)
+class Image:
+    def __init__(self, image):
+        self.image = image
 
 
-create_entity(Position((10, 10)), Surface((10, 10), BLACK))
+create_entity(
+    Position((200, 200)),
+    Image(blocks.images["soil_f"]),
+)
 
-
-@system(Position, Surface)
+@system(Position, Image)
 class RenderSystem:
     def __init__(self, surf):
         self.surf = surf
         self.set_cache(True)
     
     def process(self):
-        for pos, surf in self.get_components():
-            self.surf.blit(surf, pos)
+        for pos, image in self.get_components():
+            self.surf.blit(image.image, pos)
