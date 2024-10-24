@@ -1,0 +1,41 @@
+{
+    "pyramid": {
+        "0,0": "chest",
+        "-2,0": "sand",
+        "-1,-1": "sand",
+        "0,-2": "sand",
+        "1,-1": "sand",
+        "2,0": "sand",
+        "0,-1": "sand_bg",
+        "-1,0": "sand_bg",
+        "1,0": "sand_bg"
+    },
+    "treetop": {
+        "-1,-3": "depr_leaf_f_bg",
+        "0,-3": "depr_leaf_f_bg",
+        "1,-3": "depr_leaf_f_bg",
+        "-2,-2": "depr_leaf_f_bg",
+        "-1,-2": "depr_leaf_f_bg",
+        "0,-2": "depr_leaf_f_bg",
+        "1,-2": "depr_leaf_f_bg",
+        "2,-2": "depr_leaf_f_bg",
+        "-2,-1": "depr_leaf_f_bg",
+        "-1,-1": "depr_leaf_f_bg",
+        "0,-1": "depr_leaf_f_bg",
+        "1,-1": "depr_leaf_f_bg",
+        "2,-1": "depr_leaf_f_bg"
+    },
+    "desert-well": {
+        "-1,-1": "sand_bg",
+        "-1,-2": "sand_bg",
+        "-1,-3": "sand_bg",
+        "0,-4": "sand_bg",
+        "0,-1": "water",
+        "1,-3": "sand_bg",
+        "1,-2": "sand_bg",
+        "1,-1": "sand_bg"
+    },
+    "amogus": {
+      
+    }
+}
