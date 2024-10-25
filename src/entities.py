@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import pygame
 from . import blocks
+from .engine import *
 
 
 del Image
@@ -25,10 +26,12 @@ class Image:
         self.image = image
 
 
-create_entity(
-    Position((200, 200)),
-    Image(blocks.images["soil_f"]),
-)
+for y in range(10):
+    for x in range(100):
+        create_entity(
+            Position((x * BS + rand(-10, 10) + 100, y * BS + rand(-10, 10) + 100)),
+            Image(choice(list(blocks.images.values()))),
+        )
 
 @system(Position, Image)
 class RenderSystem:

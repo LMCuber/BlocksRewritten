@@ -1,10 +1,14 @@
 from pathlib import Path
 import pygame
 from pygame.transform import scale, scale_by
+from random import randint as rand
+from random import uniform as randf
+from random import choice
+from math import sin
 
 
 S = 3
-BS = 10
+BS = 10 * S
 
 
 def imgload(path, scale=1, frames=1):

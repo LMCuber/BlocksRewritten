@@ -1,6 +1,8 @@
 from .engine import *
 
 
+palette_img = imgload(Path("res", "images", "palettes", "dusted_sunset.png"))
+
 block_list = [
     ["air",             "bucket",           "apple",           "bamboo",          "cactus",          "watermelon",       "rock",        "chicken",     "leaf_f",       "",            "",            ""],
     ["chest",           "snow",             "coconut",         "coconut-piece",   "command-block",   "wood",             "bed",         "bed-right",   "wood_f_vrLRT", "",            "",            ""],
@@ -20,4 +22,5 @@ images = {}
 _spritesheet = imgload(Path("res", "images", "spritesheets", "blocks.png"))
 for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
-        images[block] = scale_by(_spritesheet.subsurface(x * BS, y * BS, BS, BS), S)
+        images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
+        
