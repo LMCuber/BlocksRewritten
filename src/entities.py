@@ -1,10 +1,13 @@
-from pyengine.ecs import *
-from pyengine.pgbasics import *
 from dataclasses import dataclass
 from pathlib import Path
 import pygame
+#
+from pyengine.ecs import *
+from pyengine.pgbasics import *
+#
 from . import blocks
 from .engine import *
+
 
 
 del Image
@@ -33,6 +36,7 @@ for y in range(10):
             Image(choice(list(blocks.images.values()))),
         )
 
+
 @system(Position, Image)
 class RenderSystem:
     def __init__(self, surf):
@@ -40,5 +44,6 @@ class RenderSystem:
         self.set_cache(True)
     
     def process(self):
+        return
         for pos, image in self.get_components():
             self.surf.blit(image.image, pos)
