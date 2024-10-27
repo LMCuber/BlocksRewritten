@@ -6,6 +6,8 @@ from pyengine.pgbasics import *
 from .engine import *
 from . import blocks
 from . import fonts
+from .player import *
+from .window import *
 
 
 CW = 16
@@ -51,18 +53,14 @@ class World:
                     name = "stone" if osim.noise2(x=block_x * 0.08, y=block_y * 0.08) < 0 else "air"
                 self.data[chunk_pos][(rel_x, rel_y)] = name
                 self.chunk_surfaces[chunk_pos].blit(blocks.images[name], (blit_x, blit_y))
+    
+    def get_scroll(self, rect):
+        return pygame.Rect(rect.x - self.scroll[0], rect.y - self.scroll[1], rect.width, rect.height)
 
     def update(self, display):
-        m = 2.5
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_a]:
-            self.scroll[0] -= m
-        if keys[pygame.K_d]:
-            self.scroll[0] += m
-        if keys[pygame.K_w]:
-            self.scroll[1] -= m
-        if keys[pygame.K_s]:
-            self.scroll[1] += m
+        # update the scroll
+        self.scroll[0] += (player.rect.x - self.scroll[0] - window.width / 2 + player.rect.width / 2) * 0.1
+        self.scroll[1] += (player.rect.y - self.scroll[1] - window.height / 2 + player.rect.height / 2) * 0.1
      
         for yo in range(-3, 4):
             for xo in range(-3, 4):

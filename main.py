@@ -13,7 +13,7 @@ from src import fonts
 
 class App:
     def __init__(self):
-        self.game = Game()
+        self.game = Game(vsync=True)
         self.game.mainloop()
         self.game.quit()
 
