@@ -48,7 +48,7 @@ vec3 palettize(vec4 cur) {
     return closestColor.bgr;
 }
 
-vec3 chromab(vec4 color, vec2 pos, bool dropoff) {
+vec3 chromab(vec4 color, vec2 pos, bool pallet, bool dropoff) {
     float power = dropoff? getDistToCenter(pos) / (maxDistToCenter * 5) : 1;
     float r = palettize(texture(tex, pos + vec2(rOffset.x / res.x * power, rOffset.y / res.y * power))).r;
     float g = palettize(texture(tex, pos + vec2(gOffset.x / res.x * power, gOffset.y / res.y * power))).g;
@@ -70,11 +70,11 @@ void main() {
     }
 
     // color palette
-    color = palettize(cur);
+    // color = palettize(cur);
 
     // chromatic aberration
-    color = chromab(cur, pos, true);
+    color = chromab(cur, pos, true, true);
 
     // set final color
-    fColor = vec4(color, 1);
+    fColor = vec4(color, texture(tex, pos).a);
 }
