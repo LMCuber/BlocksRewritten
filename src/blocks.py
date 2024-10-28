@@ -1,7 +1,14 @@
+import os
+#
 from .engine import *
+from .window import *
 
 
-palette_img = imgload(Path("res", "images", "palettes", "dusted_sunset.png"))
+
+d = Path("res", "images", "palettes")
+palette_img = imgload(Path("res", "images", "palettes", choice(os.listdir(d))), convert_alpha=False)
+palette_img = imgload(Path("res", "images", "palettes", "dusted_sunset.png"), convert_alpha=False)
+
 
 block_list = [
     ["air",             "bucket",           "apple",           "bamboo",          "cactus",          "watermelon",       "rock",        "chicken",     "leaf_f",       "",            "",            ""],
