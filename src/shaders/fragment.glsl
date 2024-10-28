@@ -57,17 +57,9 @@ vec3 chromab(vec4 color, vec2 pos, bool pallet, bool dropoff) {
 }
 
 void main() {
-<<<<<<< HEAD
-    // init
-
-    float w = 1 / size.x;
-    float h = 1 / size.y;
-
-=======
     // initializen variabeln
     float r, g, b, a;
     vec3 color;
->>>>>>> f053f9e602c4159dd30f47dd82afe9e10732a95f
     time; center; paletteTex; rOffset; gOffset; bOffset;
     vec4 cur = texture(tex, pos);
 
