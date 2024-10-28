@@ -21,7 +21,7 @@ void main() {
     float w = 1 / size.x;
     float h = 1 / size.y;
 
-    time; center; paletteTex;
+    time; center; paletteTex; rOffset; gOffset; bOffset;
     vec4 cur = texture(tex, pos);
 
     // float r = texture(tex, pos + vec2(rOffset.x * w, rOffset.y * h)).r;
