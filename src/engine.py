@@ -26,8 +26,8 @@ def get_blocks_around(rect, world, scroll, range_x=(-2, 3), range_y=(-2, 3)):
                 yield block_rect
 
 
-def imgload(path, scale=1, frames=1, convert=False, convert_alpha=True):
-    img = pygame.image.load(path)
+def imgload(*path, scale=1, frames=1, convert=False, convert_alpha=True):
+    img = pygame.image.load(Path(*path))
     if convert:
         img = img.convert()
     elif convert_alpha:

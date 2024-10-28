@@ -6,8 +6,8 @@ from .window import *
 
 
 d = Path("res", "images", "palettes")
-palette_img = imgload(Path("res", "images", "palettes", choice(os.listdir(d))), convert_alpha=False)
-palette_img = imgload(Path("res", "images", "palettes", "dusted_sunset.png"), convert_alpha=False)
+palette_img = imgload("res", "images", "palettes", choice(os.listdir(d)), convert_alpha=False)
+palette_img = imgload("res", "images", "palettes", "dusted_sunset.png", convert_alpha=False)
 
 
 block_list = [
@@ -26,7 +26,7 @@ block_list = [
     ["corn-crop_vr0.0", "corn-crop_vr1.0",  "corn-crop_vr2.0", "corn-crop_vr3.0", "corn-crop_vr4.0", "cattail",          "pampas",      "",            "",             "",            "",            "asd1"],
 ]
 images = {}
-_spritesheet = imgload(Path("res", "images", "spritesheets", "blocks.png"))
+_spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
 for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
         images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)

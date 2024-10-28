@@ -9,6 +9,7 @@ import pyengine.pgwidgets as pgw
 #
 from src.entities import *
 from src.window import *
+from src.shock import *
 from src import world
 from src import player
 from src import fonts
@@ -21,13 +22,16 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_systems()
         self.shader = ModernglShader(Path("src", "shaders", "vertex.glsl"), Path("src", "shaders", "fragment.glsl"))
+        self.shock_gradient = imgload("res", "images", "visuals", "shock_gradient.jpg")
         # runtime objects
         self.world = world.World()
         self.player = player.Player(self.world)
         self.scroll = [0, 0]
+        self.shock = Shock(0, 0, 0, [0, 0])
     
     def init_systems(self):
         self.render_system = RenderSystem(window.display)
+        self.player_follower_system = PlayerFollowerSystem(window.display)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -44,6 +48,14 @@ class Game:
         self.shader.send("rOffset", (-o, 0))
         self.shader.send("gOffset", (0, 0))
         self.shader.send("bOffset", (o, 0))
+        if self.shock.active:
+            self.shock.size += 0.005
+            self.shock.force += 0.005
+        self.shader.send("shockForce", self.shock.force)
+        self.shader.send("shockSize", self.shock.size)
+        self.shader.send("shockThickness", self.shock.thickness)
+        self.shader.send("shockPos", self.shock.pos)
+        self.shader.send("shockActive", self.shock.active)
 
     def apply_scroll(self):
         self.scroll[0] += (self.player.rect.x - self.scroll[0] - window.width / 2 + self.player.rect.width / 2) * 0.1
@@ -56,7 +68,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            self.clock.tick(window.target_fps)
+            dt = self.clock.tick(window.target_fps) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -70,6 +82,10 @@ class Game:
                 
                 elif event.type == pygame.VIDEORESIZE:
                     print(event.size)
+                
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    shock_pos = [event.pos[0] / window.width, event.pos[1] / window.height]
+                    self.shock = Shock(0, 0, 0, shock_pos, active=True)
 
             window.display.fill((60, 120, 50))
 
@@ -80,12 +96,13 @@ class Game:
             num_blocks = self.world.update(window.display, self.scroll)
 
             # update the player
-            self.player.update(window.display, self.scroll)
+            self.player.update(window.display, self.scroll, dt)
 
             # process the ECS systems
             self.render_system.process(self.scroll, self.world)
+            self.player_follower_system.process(self.player)
 
-            # update the pyengine widgets
+            # update the pyengine.pgwidgets
             pgw.draw_and_update_widgets()
 
             # display the fps

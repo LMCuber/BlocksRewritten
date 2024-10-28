@@ -11,6 +11,12 @@ uniform vec2 gOffset;
 uniform vec2 bOffset;
 uniform vec4 deadZone;
 
+uniform float shockForce;
+uniform float shockSize;
+uniform float shockThickness;
+uniform vec2 shockPos;
+uniform bool shockActive;
+
 uniform float pi = 3.14159;
 uniform float maxDistToCenter = 0.5 * sqrt(2.0);
 
@@ -60,6 +66,7 @@ void main() {
     // initializen variabeln
     float r, g, b, a;
     vec3 color;
+    float dyDx = res.y / res.x;
     time; center; paletteTex; rOffset; gOffset; bOffset;
     vec4 cur = texture(tex, pos);
 
@@ -73,7 +80,18 @@ void main() {
     // color = palettize(cur);
 
     // chromatic aberration
-    color = chromab(cur, pos, true, true);
+    // color = chromab(cur, pos, true, true);
+
+    color = texture(tex, pos).rgb;
+
+    if (shockActive) {
+        vec2 scaledPos = (pos - vec2(0.5, 0.0)) / vec2(dyDx, 1.0) + vec2(0.5, 0.0);
+        scaledPos = pos;
+        float mask = (1 - smoothstep(shockSize - 0.1, shockSize, length(scaledPos - shockPos)))
+                    * smoothstep(shockSize - shockThickness - 0.1, shockSize - shockThickness, length(scaledPos - shockPos));
+        vec2 disp = normalize(scaledPos - shockPos) * shockForce * mask;
+        color = texture(tex, pos - disp).rgb;
+    }
 
     // set final color
     fColor = vec4(color, texture(tex, pos).a);

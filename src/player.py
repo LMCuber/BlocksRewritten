@@ -21,7 +21,7 @@ class Player:
     def draw(self, display, scroll):
         display.blit(self.image, (self.rect.x - scroll[0], self.rect.y - scroll[1]))
     
-    def move(self, scroll):
+    def move(self, scroll, dt):
         # init
         keys = pygame.key.get_pressed()
         
@@ -33,7 +33,7 @@ class Player:
         if keys[pygame.K_d]:
             self.xvel += (self.max_xvel - self.xvel) * self.xacc
         if not (keys[pygame.K_a] or keys[pygame.K_d]):
-            self.xvel += -self.xvel * self.xacc
+            self.xvel += -self.xvel * self.xacc * dt
         self.rect.x += self.xvel
         
         # collision X
@@ -70,7 +70,7 @@ class Player:
         self.jumps_left -= 1
         self.pressing_jump = True
     
-    def update(self, display, scroll):
-        self.move(scroll)
+    def update(self, display, scroll, dt):
+        self.move(scroll, dt)
         self.draw(display, scroll)
         
