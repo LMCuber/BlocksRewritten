@@ -37,10 +37,10 @@ class FollowsPlayer:
     pass
 
 
-for _ in range(5):
+for _ in range(1):
     create_entity(
-        Transform([-100, -400], [randf(1.0, 2.0), 0.0], glob.gravity),
-        Sprite(Path("res", "images", "mobs", "bok-bok", "walk.png"), 4, 0.1),
+        Transform([-100, -400], [randf(0.5, 1), 0.0], glob.gravity),
+        Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
         FollowsPlayer(),
     )
 
@@ -59,9 +59,13 @@ class RenderSystem:
             sprite.rect.topleft = tr.pos
 
             # pygame.draw.rect(self.display, (120, 120, 120), (sprite.rect.x - scroll[0], sprite.rect.y - scroll[1], *sprite.rect.size), 1)
-            for rect in get_blocks_around(sprite.rect, world, scroll):
+            x_disp = ceil(abs(tr.vel[0] / BS))
+            range_x = (-x_disp, x_disp + 1)
+            y_disp = ceil(abs(tr.vel[1] / BS))
+            range_y = (-y_disp, y_disp + 1)
+            for rect in get_blocks_around(sprite.rect, world, range_x=range_x, range_y=range_y):
+                pygame.draw.rect(self.display, pygame.Color("orange"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                 if sprite.rect.colliderect(rect):
-                    # pygame.draw.rect(self.display, (120, 120, 120), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if tr.vel[1] > 0:
                         tr.pos[1] = rect.top - sprite.rect.height
                     else:
@@ -72,7 +76,7 @@ class RenderSystem:
             tr.pos[0] += tr.vel[0]
             sprite.rect.topleft = tr.pos
 
-            for rect in get_blocks_around(sprite.rect, world, scroll):
+            for rect in get_blocks_around(sprite.rect, world):
                 if sprite.rect.colliderect(rect):
                     if tr.vel[0] > 0:
                         tr.pos[0] = rect.left - sprite.rect.width
@@ -82,10 +86,10 @@ class RenderSystem:
             
             extended_rect = inflate_keep(sprite.rect, 20 * sign(tr.vel[0]))
             # pygame.draw.rect(self.display, (120, 120, 120), (extended_rect.x - scroll[0], extended_rect.y - scroll[1], *extended_rect.size), 1)
-            for rect in get_blocks_around(extended_rect, world, scroll):
+            for rect in get_blocks_around(extended_rect, world):
                 if extended_rect.colliderect(rect):
                     tr.vel[1] = -3
-                    
+
             # animate and render
             sprite.anim += sprite.anim_speed
             try:
@@ -97,15 +101,15 @@ class RenderSystem:
                 self.display.blit((sprite.images if tr.vel[0] > 0 else sprite.fimages)[int(sprite.anim)], blit_pos)
 
 
-@system(FollowsPlayer, Transform)
+@system(FollowsPlayer, Transform, Sprite)
 class PlayerFollowerSystem:
     def __init__(self, display):
         self.display = display
         self.set_cache(True)
     
     def process(self, player):
-        for _, tr in self.get_components():
-            if tr.pos[0] > player.rect.centerx and tr.vel[0] > 0:
+        for _, tr, sprite in self.get_components():
+            if tr.pos[0] + sprite.rect.width / 2 > player.rect.centerx and tr.vel[0] > 0:
                 tr.vel[0] *= -1
-            elif tr.pos[0] < player.rect.centerx and tr.vel[0] < 0:
+            elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
                 tr.vel[0] *= -1

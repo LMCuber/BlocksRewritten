@@ -1,6 +1,6 @@
 import opensimplex as osim
 from enum import Enum
-from math import floor
+import uuid
 #
 from pyengine.pgbasics import *
 #
@@ -20,17 +20,20 @@ class World:
         self.chunk_surfaces = {}
         self.chunk_colors = {}
         self.create_world()
+        self.seed = uuid.uuid4().int
+        self.seed = 123
+        osim.seed(self.seed)
+        self.random = random.Random(self.seed)
 
-    def pos_to_tile(self, pos, scroll):
-        chunk_index = (
-            floor(pos[0] / (CW * BS)),
-            floor(pos[1] / (CH * BS)),
+    def pos_to_tile(self, pos):
+        return ((
+                floor(pos[0] / (CW * BS)),
+                floor(pos[1] / (CH * BS)),
+            ), (
+                floor(pos[0] / BS),
+                floor(pos[1] / BS),
+            )
         )
-        block_pos = (
-            floor(pos[0] / BS),
-            floor(pos[1] / BS),
-        )
-        return chunk_index, block_pos
 
     def correct_tile(self, target_chunk, block_pos, xo, yo):
         rel_x, rel_y = block_pos[0] % CW, block_pos[1] % CH
@@ -54,6 +57,30 @@ class World:
     def create_world(self):
         self.data = {}
     
+    def modify_chunk(self, chunk_index):
+        def _chance(p):
+            return self.random.random() < p
+
+        chunk_x, chunk_y = chunk_index
+        for rel_y in range(CH):
+            for rel_x in range(CW):
+                # init
+                blit_x, blit_y = rel_x * BS, rel_y * BS
+                block_pos = block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
+                name = og_name = self.data[chunk_index].get(block_pos, None)
+                # modify!
+                if name == "soil_f":
+                    # tree
+                    if _chance(1 / 10):
+                        for yo in range(5):
+                            tree_y = block_y - yo - 1
+                            self.data[chunk_index][block_pos] = name
+                # update chunk data and blit block image
+                if name != og_name:
+                    self.data[chunk_index][block_pos] = name
+                if name is not None:
+                    self.chunk_surfaces[chunk_index].blit(blocks.images[name], (blit_x, blit_y))
+    
     def create_chunk(self, chunk_index):
         # initialize empty chunk data
         chunk_x, chunk_y = chunk_index
@@ -66,22 +93,30 @@ class World:
                 # init variables
                 blit_x, blit_y = rel_x * BS, rel_y * BS
                 block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
+                if chunk_y in (-1, 0):
+                    noise = int(osim.noise2(x=block_x * 0.08, y=0) * 8)
                 if chunk_y < -1:
                     # SKY
                     name = "air"
                 elif chunk_y == -1:
                     # SURFACE LEVEL
                     name = "air"
-                    noise = int(osim.noise2(x=block_x * 0.08, y=0) * 8)
                     if rel_y == CH / 2 + noise:
                         name = "soil_f"
                     elif rel_y > CH / 2 + noise:
                         name = "dirt_f"
+                elif chunk_y == 0:
+                    # SOIL UNDER SURFACE LEVEL
+                    if rel_y > CH / 2 + noise:
+                        name = "stone"
+                    else:
+                        name = "dirt_f"
                 else:
                     # UNDERGROUND
                     name = "stone" if osim.noise2(x=block_x * 0.08, y=block_y * 0.08) < 0 else "air"
-                self.data[chunk_index][(block_x, block_y)] = name
-                self.chunk_surfaces[chunk_index].blit(blocks.images[name], (blit_x, blit_y))
+                if name != "air":
+                    self.data[chunk_index][(block_x, block_y)] = name
+        self.modify_chunk(chunk_index)
     
     def update(self, display, scroll):
         num_blocks = 0

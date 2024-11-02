@@ -28,6 +28,7 @@ class Game:
         self.player = player.Player(self.world)
         self.scroll = [0, 0]
         self.shock = Shock(0, 0, 0, [0, 0])
+        self.last_start = ticks()
     
     def init_systems(self):
         self.render_system = RenderSystem(window.display)
@@ -40,8 +41,9 @@ class Game:
 
         # send uniform data to the shader
         self.shader.send("time", ticks())
-        self.shader.send("center", window.center)
+        self.shader.send("centerWin", window.center)
         self.shader.send("res", (window.width, window.height))
+
         w = 120
         self.shader.send("deadZone", (pygame.mouse.get_pos()[0] - w, pygame.mouse.get_pos()[1] - w, w * 2, w * 2))
         o = 0
@@ -49,13 +51,15 @@ class Game:
         self.shader.send("gOffset", (0, 0))
         self.shader.send("bOffset", (o, 0))
         if self.shock.active:
-            self.shock.size += 0.005
-            self.shock.force += 0.005
+            self.shock.size += 0.014
+            self.shock.force += 0.014
         self.shader.send("shockForce", self.shock.force)
         self.shader.send("shockSize", self.shock.size)
         self.shader.send("shockThickness", self.shock.thickness)
         self.shader.send("shockPos", self.shock.pos)
         self.shader.send("shockActive", self.shock.active)
+        self.shader.send("lightPosWin", self.player.rect.move(-self.scroll[0], -self.scroll[1]).center)
+        self.shader.send("lightPowerWin", 0)
 
     def apply_scroll(self):
         self.scroll[0] += (self.player.rect.x - self.scroll[0] - window.width / 2 + self.player.rect.width / 2) * 0.1
@@ -68,7 +72,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick(window.target_fps) / (1 / 144 * 1000)
+            dt = self.clock.tick() / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -84,10 +88,11 @@ class Game:
                     print(event.size)
                 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    shock_pos = [event.pos[0] / window.width, event.pos[1] / window.height]
-                    self.shock = Shock(0, 0, 0, shock_pos, active=True)
+                    # shock_pos = [event.pos[0] / window.width, event.pos[1] / window.height]
+                    # self.shock = Shock(0, 0, 0, shock_pos, active=True)
+                    pass
 
-            window.display.fill((60, 120, 50))
+            window.display.fill(SKY_BLUE)
 
             # scroll the display
             self.apply_scroll()
@@ -117,6 +122,8 @@ class Game:
             # render the shader
             self.shader.render()
 
-            pygame.display.flip()
+            window.window.flip()
 
             self.shader.release_all_textures()
+        
+        self.quit()

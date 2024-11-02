@@ -33,11 +33,11 @@ class Player:
         if keys[pygame.K_d]:
             self.xvel += (self.max_xvel - self.xvel) * self.xacc
         if not (keys[pygame.K_a] or keys[pygame.K_d]):
-            self.xvel += -self.xvel * self.xacc * dt
+            self.xvel += -self.xvel * self.xacc
         self.rect.x += self.xvel
         
         # collision X
-        for rect in get_blocks_around(self.rect, self.world, scroll):
+        for rect in get_blocks_around(self.rect, self.world):
             if self.rect.colliderect(rect):
                 if self.xvel > 0:
                     self.rect.right = rect.left
@@ -55,7 +55,7 @@ class Player:
         self.rect.y += self.yvel
 
         # collision Y
-        for rect in get_blocks_around(self.rect, self.world, scroll):
+        for rect in get_blocks_around(self.rect, self.world):
             if self.rect.colliderect(rect):
                 if self.yvel > 0:
                     self.rect.bottom = rect.top

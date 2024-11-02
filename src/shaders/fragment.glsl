@@ -4,7 +4,7 @@ uniform sampler2D tex;
 uniform sampler2D paletteTex;
 
 uniform float time;
-uniform vec2 center;
+uniform vec2 centerWin;
 uniform vec2 res;
 uniform vec2 rOffset;
 uniform vec2 gOffset;
@@ -16,6 +16,8 @@ uniform float shockSize;
 uniform float shockThickness;
 uniform vec2 shockPos;
 uniform bool shockActive;
+uniform vec2 lightPosWin;
+uniform float lightPowerWin;
 
 uniform float pi = 3.14159;
 uniform float maxDistToCenter = 0.5 * sqrt(2.0);
@@ -28,11 +30,6 @@ out vec4 fColor;
 float colorDiff(vec4 c1, vec4 c2) {
     return sqrt(pow(c2.r - c1.r, 2) + pow(c2.g - c1.g, 2) + pow(c2.b - c1.b, 2));
 }
-
-float getDistToCenter(vec2 pos) {
-    return sqrt(pow(pos.x - center.x / res.x, 2) + pow(pos.y - center.y / res.y, 2));
-}
-
 
 bool aabb(vec2 point, vec4 area) {
     return (point.x >= area.x && point.x <= area.x + area.z && point.y >= area.y && point.y <= area.y + area.w);
@@ -55,10 +52,9 @@ vec3 palettize(vec4 cur) {
 }
 
 vec3 chromab(vec4 color, vec2 pos, bool pallet, bool dropoff) {
-    float power = dropoff? getDistToCenter(pos) / (maxDistToCenter * 5) : 1;
-    float r = palettize(texture(tex, pos + vec2(rOffset.x / res.x * power, rOffset.y / res.y * power))).r;
-    float g = palettize(texture(tex, pos + vec2(gOffset.x / res.x * power, gOffset.y / res.y * power))).g;
-    float b = palettize(texture(tex, pos + vec2(bOffset.x / res.x * power, bOffset.y / res.y * power))).b;
+    float r = palettize(texture(tex, pos + vec2(rOffset.x / res.x, rOffset.y / res.y))).r;
+    float g = palettize(texture(tex, pos + vec2(gOffset.x / res.x, gOffset.y / res.y))).g;
+    float b = palettize(texture(tex, pos + vec2(bOffset.x / res.x, bOffset.y / res.y))).b;
     return vec3(r, g, b);
 }
 
@@ -67,8 +63,10 @@ void main() {
     float r, g, b, a;
     vec3 color;
     float dyDx = res.y / res.x;
-    time; center; paletteTex; rOffset; gOffset; bOffset;
+    time; paletteTex; rOffset; gOffset; bOffset;
+    vec2 center = centerWin / res;
     vec4 cur = texture(tex, pos);
+    vec2 scaledPos = vec2((pos.x - 0.5) / dyDx + 0.5, pos.y);
 
     // cheeck foor deaad aareas
     if (aabb(pos * res, deadZone)) {
@@ -80,9 +78,9 @@ void main() {
     // color = palettize(cur);
 
     // chromatic aberration
-    // color = chromab(cur, pos, true, true);
+    color = chromab(cur, pos, true, true);
 
-    color = texture(tex, pos).rgb;
+    // color = texture(tex, pos).rgb;
 
     if (shockActive) {
         vec2 scaledPos = (pos - vec2(0.5, 0.0)) / vec2(dyDx, 1.0) + vec2(0.5, 0.0);
@@ -92,6 +90,8 @@ void main() {
         vec2 disp = normalize(scaledPos - shockPos) * shockForce * mask;
         color = texture(tex, pos - disp).rgb;
     }
+
+    lightPosWin; lightPowerWin;
 
     // set final color
     fColor = vec4(color, texture(tex, pos).a);
