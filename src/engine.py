@@ -38,9 +38,9 @@ def get_blocks_around(rect, world, range_x=(-1, 2), range_y=(-1, 2)):
 
 def imgload(*path, scale=1, frames=1, convert=False, convert_alpha=True):
     img = pygame.image.load(Path(*path))
-    if convert and False:
+    if convert:
         img = img.convert()
-    elif convert_alpha and False:
+    elif convert_alpha:
         img = img.convert_alpha()
     if frames == 1:
         return pygame.transform.scale_by(img, scale)

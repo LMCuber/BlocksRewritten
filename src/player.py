@@ -66,7 +66,7 @@ class Player:
                 self.yvel = 0
     
     def jump(self):
-        self.yvel = -5
+        self.yvel = -6
         self.jumps_left -= 1
         self.pressing_jump = True
     

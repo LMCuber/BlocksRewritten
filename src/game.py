@@ -72,7 +72,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick() / (1 / 144 * 1000)
+            dt = self.clock.tick(window.target_fps) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -98,14 +98,14 @@ class Game:
             self.apply_scroll()
 
             # draw and update the terrain
-            num_blocks = self.world.update(window.display, self.scroll)
+            num_blocks, processed_chunks = self.world.update(window.display, self.scroll)
 
             # update the player
             self.player.update(window.display, self.scroll, dt)
 
             # process the ECS systems
-            self.render_system.process(self.scroll, self.world)
-            self.player_follower_system.process(self.player)
+            self.render_system.process(self.scroll, self.world, chunks=processed_chunks)
+            self.player_follower_system.process(self.player, chunks=processed_chunks)
 
             # update the pyengine.pgwidgets
             pgw.draw_and_update_widgets()
@@ -114,9 +114,9 @@ class Game:
             write(window.display, "topleft", int(self.clock.get_fps()), fonts.orbitron[20], BLACK, 5, 5)
             if window.vsync:
                 write(window.display, "topleft", "vsync", fonts.orbitron[10], BLACK, 5, 24)
-            write(window.display, "topleft", num_blocks, fonts.orbitron[20], BLACK, 5, 40)
+            write(window.display, "topleft", f"{num_blocks} blocks", fonts.orbitron[15], BLACK, 5, 40)
 
-            # DO RENDERING BEFORE THIS BLOCK
+            # --- DO RENDERING BEFORE THIS BLOCK ---
             self.send_data_to_shader()
 
             # render the shader

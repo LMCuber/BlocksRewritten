@@ -18,5 +18,5 @@ def run():
 
 
 if __name__ == "__main__":
-    cProfile.run("run()", sort="cumtime")
-    # run()
+    # cProfile.run("run()", sort="cumtime")
+    run()
