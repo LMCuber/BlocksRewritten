@@ -41,7 +41,7 @@ class Game:
 
         # send uniform data to the shader
         self.shader.send("time", ticks())
-        self.shader.send("centerWin", window.center)
+        # self.shader.send("centerWin", window.center)
         self.shader.send("res", (window.width, window.height))
 
         w = 120
@@ -58,8 +58,8 @@ class Game:
         self.shader.send("shockThickness", self.shock.thickness)
         self.shader.send("shockPos", self.shock.pos)
         self.shader.send("shockActive", self.shock.active)
-        self.shader.send("lightPosWin", self.player.rect.move(-self.scroll[0], -self.scroll[1]).center)
-        self.shader.send("lightPowerWin", 0)
+        # self.shader.send("lightPosWin", self.player.rect.move(-self.scroll[0], -self.scroll[1]).center)
+        # self.shader.send("lightPowerWin", 0)
 
     def apply_scroll(self):
         self.scroll[0] += (self.player.rect.x - self.scroll[0] - window.width / 2 + self.player.rect.width / 2) * 0.1
@@ -122,7 +122,8 @@ class Game:
             # render the shader
             self.shader.render()
 
-            window.window.flip()
+            # window.window.flip()
+            pygame.display.flip()
 
             self.shader.release_all_textures()
         
