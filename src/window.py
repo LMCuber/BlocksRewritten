@@ -19,9 +19,8 @@ class Window:
         self.vsync = vsync
         self.target_fps = target_fps
         self.center = (self.width / 2, self.height / 2)
-        # self.window = pygame.display.set_mode((self.width, self.height), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE, vsync=self.vsync)
-        self.window = pygame.Window(size=(self.width, self.height), opengl=True)
-        self.display = self.window.get_surface()
+        self.window = pygame.display.set_mode((self.width, self.height), pygame.OPENGL | pygame.DOUBLEBUF | pygame.RESIZABLE, vsync=self.vsync)
+        self.display = pygame.display.get_surface()
 
 
 window = Window()
