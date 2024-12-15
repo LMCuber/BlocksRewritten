@@ -13,6 +13,14 @@ S = 3
 BS = 10 * S
 
 
+def sign(n):
+    if n > 0:
+        return 1
+    elif n < 0:
+        return -1
+    return 0
+
+
 def cceil(n):
     if n == 0:
         return 0
@@ -31,7 +39,7 @@ def get_blocks_around(rect, world, range_x=(-1, 2), range_y=(-1, 2)):
     for yo in range(*range_y):
         for xo in range(*range_x):
             chunk_index, block_pos = world.correct_tile(og_chunk_index, og_block_pos, xo, yo)
-            if block_pos in world.data[chunk_index]:
+            if chunk_index in world.data and block_pos in world.data[chunk_index]:
                 block_rect = pygame.Rect(block_pos[0] * BS, block_pos[1] * BS, BS, BS)
                 yield block_rect
 

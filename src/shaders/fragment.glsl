@@ -11,11 +11,6 @@ uniform vec2 gOffset;
 uniform vec2 bOffset;
 uniform vec4 deadZone;
 
-uniform float shockForce;
-uniform float shockSize;
-uniform float shockThickness;
-uniform vec2 shockPos;
-uniform bool shockActive;
 uniform vec2 lightPosWin;
 uniform float lightPowerWin;
 
@@ -59,11 +54,13 @@ vec3 chromab(vec4 color, vec2 pos, bool pallet, bool dropoff) {
 }
 
 void main() {
+    // safe
+    time; paletteTex; rOffset; gOffset; bOffset;
+
     // initializen variabeln
     float r, g, b, a;
     vec3 color;
     float dyDx = res.y / res.x;
-    time; paletteTex; rOffset; gOffset; bOffset;
     vec2 center = centerWin / res;
     vec4 cur = texture(tex, pos);
     vec2 scaledPos = vec2((pos.x - 0.5) / dyDx + 0.5, pos.y);
@@ -76,19 +73,8 @@ void main() {
 
     // color palette
     color = palettize(cur);
-
+    
     // chromatic aberration
-    // color = chromab(cur, pos, true, true);
-
-    shockActive; shockForce; shockSize; shockThickness; shockPos; lightPosWin; lightPosWin;
-    // if (shockActive) {
-    //     vec2 scaledPos = (pos - vec2(0.5, 0.0)) / vec2(dyDx, 1.0) + vec2(0.5, 0.0);
-    //     scaledPos = pos;
-    //     float mask = (1 - smoothstep(shockSize - 0.1, shockSize, length(scaledPos - shockPos)))
-    //                 * smoothstep(shockSize - shockThickness - 0.1, shockSize - shockThickness, length(scaledPos - shockPos));
-    //     vec2 disp = normalize(scaledPos - shockPos) * shockForce * mask;
-    //     color = texture(tex, pos - disp).rgb;
-    // }
 
     // set final color
     fColor = vec4(color, texture(tex, pos).a);

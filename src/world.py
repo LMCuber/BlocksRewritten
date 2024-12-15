@@ -88,15 +88,12 @@ class World:
                 name = og_name = self.data[chunk_index].get(block_pos, None)
                 # modify!
                 if name == "soil_f":
-
-                    if chunk_index == (0, -1):
-                        create_entity(
-                        Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [0, 0.0], 0),
-                        Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
-                        FollowsPlayer(),
-                        chunk=chunk_index,
-                    )
-                    
+                    # create_entity(
+                    #     Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 0), 0.0], glob.gravity*0),
+                    #     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
+                    #     PlayerFollower(acc=True),
+                    #     chunk=chunk_index,
+                    # )
                     # tree
                     if _chance(1 / 24):
                         tree_height = _rand(6, 8)
@@ -163,7 +160,7 @@ class World:
                     self.data[chunk_index][(block_x, block_y)] = name
         self.modify_chunk(chunk_index)
     
-    def update(self, display, scroll) -> list[int, list[tuple[int, int]]]:
+    def update(self, display, scroll):
         num_blocks = 0
         processed_chunks = []
         for yo in range(-3, 4):

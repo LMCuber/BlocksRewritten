@@ -1,5 +1,9 @@
 import pygame
+#
+from pyengine.ecs import *
+#
 from .engine import *
+from .entities import *
 
 
 class Player:
@@ -20,6 +24,15 @@ class Player:
     
     def draw(self, display, scroll):
         display.blit(self.image, (self.rect.x - scroll[0], self.rect.y - scroll[1]))
+    
+    def process_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                create_entity(
+                    Transform(self.rect.center, [0, -5], 0.1),
+                    Sprite(Path("res", "images", "player_skins", "helicopter.png"), 7, 0.1),
+                    chunk=0
+                )
     
     def move(self, scroll, dt):
         # init

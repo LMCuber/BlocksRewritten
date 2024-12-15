@@ -13,6 +13,7 @@ from src.shock import *
 from src import world
 from src import player
 from src import fonts
+from src import joystick
 
 
 
@@ -29,6 +30,8 @@ class Game:
         self.scroll = [0, 0]
         self.shock = Shock(0, 0, 0, [0, 0])
         self.last_start = ticks()
+        # joystick
+        self.joystick = joystick.JoystickManager()
     
     def init_systems(self):
         self.render_system = RenderSystem(window.display)
@@ -50,20 +53,12 @@ class Game:
         self.shader.send("rOffset", (-o, 0))
         self.shader.send("gOffset", (0, 0))
         self.shader.send("bOffset", (o, 0))
-        if self.shock.active:
-            self.shock.size += 0.014
-            self.shock.force += 0.014
-        self.shader.send("shockForce", self.shock.force)
-        self.shader.send("shockSize", self.shock.size)
-        self.shader.send("shockThickness", self.shock.thickness)
-        self.shader.send("shockPos", self.shock.pos)
-        self.shader.send("shockActive", self.shock.active)
         # self.shader.send("lightPosWin", self.player.rect.move(-self.scroll[0], -self.scroll[1]).center)
         # self.shader.send("lightPowerWin", 0)
 
-    def apply_scroll(self):
-        self.scroll[0] += (self.player.rect.x - self.scroll[0] - window.width / 2 + self.player.rect.width / 2) * 0.1
-        self.scroll[1] += (self.player.rect.y - self.scroll[1] - window.height / 2 + self.player.rect.height / 2) * 0.1
+    def apply_scroll(self, m):
+        self.scroll[0] += (self.player.rect.x - self.scroll[0] - window.width / 2 + self.player.rect.width / 2) * m
+        self.scroll[1] += (self.player.rect.y - self.scroll[1] - window.height / 2 + self.player.rect.height / 2) * m
     
     def quit(self):
         pygame.quit()
@@ -72,10 +67,11 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick(window.target_fps) / (1 / 144 * 1000)
+            dt = self.clock.tick(0) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
+                self.player.process_event(event)
 
                 if event.type == pygame.QUIT:
                     self.running = False
@@ -95,10 +91,11 @@ class Game:
             window.display.fill(SKY_BLUE)
 
             # scroll the display
-            self.apply_scroll()
+            self.apply_scroll(0.1)
 
             # draw and update the terrain
             num_blocks, processed_chunks = self.world.update(window.display, self.scroll)
+            processed_chunks.append(0)
 
             # update the player
             self.player.update(window.display, self.scroll, dt)
