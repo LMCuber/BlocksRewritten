@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import pygame
 from dataclasses import dataclass
+from typing import Optional
 #
 from pyengine.ecs import *
 from pyengine.pgbasics import *
@@ -20,6 +21,7 @@ class Transform:
     pos: list[float, float]
     vel: list[float, float]
     gravity: float
+    acc: float = 0
 
 
 @component
@@ -33,16 +35,17 @@ class Sprite:
 
 
 @component
-class FollowsPlayer:
-    pass
+@dataclass
+class PlayerFollower:
+    acc: Optional[bool] = False
 
 
-create_entity(
-    Transform([0, -400], [1, 0.0], 0.01),
-    Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
-    FollowsPlayer(),
-    chunk=(0, 0)
-)
+# create_entity(
+#     Transform([0, -400], [1, 0.0], 0.1),
+#     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
+#     PlayerFollower(),
+#     chunk=(0, 0)
+# )
 
 
 @system(Transform, Sprite)
@@ -72,6 +75,7 @@ class RenderSystem:
                     tr.vel[1] = 0
                     sprite.rect.topleft = tr.pos
             
+            tr.vel[0] += tr.acc
             tr.pos[0] += tr.vel[0]
             sprite.rect.topleft = tr.pos
 
@@ -100,14 +104,14 @@ class RenderSystem:
                 self.display.blit((sprite.images if tr.vel[0] > 0 else sprite.fimages)[int(sprite.anim)], blit_pos)
 
 
-@system(FollowsPlayer, Transform, Sprite)
+@system(PlayerFollower, Transform, Sprite)
 class PlayerFollowerSystem:
     def __init__(self, display):
         self.display = display
         self.set_cache(True)
     
     def process(self, player, chunks):
-        for _, tr, sprite in self.get_components(chunks):
+        for pf, tr, sprite in self.get_components(chunks):
             if tr.pos[0] + sprite.rect.width / 2 > player.rect.centerx and tr.vel[0] > 0:
                 tr.vel[0] *= -1
             elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
