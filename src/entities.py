@@ -15,6 +15,7 @@ from .engine import *
 del Window, Renderer, Texture, Image
 
 
+# COMPONENTS
 @component
 @dataclass
 class Transform:
@@ -46,6 +47,12 @@ class Despawner:
     time: float
 
 
+@dataclass
+@component
+class Rigidbody:
+    bounce: float
+
+
 # create_entity(
 #     Transform([0, -400], [1, 0.0], 0.1),
 #     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
@@ -54,6 +61,7 @@ class Despawner:
 # )
 
 
+# SYSTEMS
 @system(Transform, Sprite)
 class RenderSystem:
     def __init__(self, display):
@@ -61,7 +69,7 @@ class RenderSystem:
         self.set_cache(True)
 
     def process(self, scroll, world, chunks):
-        for tr, sprite in self.get_components(chunks):
+        for ent, (tr, sprite, rb) in self.get_components(chunks):
             # physics
             tr.vel[1] += tr.gravity
             tr.pos[1] += tr.vel[1]
@@ -117,14 +125,14 @@ class PlayerFollowerSystem:
         self.set_cache(True)
     
     def process(self, player, chunks):
-        for pf, tr, sprite in self.get_components(chunks):
+        for ent, (pf, tr, sprite) in self.get_components(chunks):
             if tr.pos[0] + sprite.rect.width / 2 > player.rect.centerx and tr.vel[0] > 0:
                 tr.vel[0] *= -1
             elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
                 tr.vel[0] *= -1
 
 
-@system(Despawner)
-class DespawnerSystem:
-    def __init__(self):
-        pass
+# @system(Despawner)
+# class DespawnerSystem:
+#     def __init__(self):
+        

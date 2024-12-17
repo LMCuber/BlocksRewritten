@@ -67,7 +67,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick() / (1 / 144 * 1000)
+            dt = self.clock.tick(144) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -123,5 +123,5 @@ class Game:
             pygame.display.flip()
 
             self.shader.release_all_textures()
-        
+
         self.quit()
