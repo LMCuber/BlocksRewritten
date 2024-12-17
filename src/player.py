@@ -29,7 +29,7 @@ class Player:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 create_entity(
-                    Transform(self.rect.center, [0, -5], 0.1),
+                    Transform([self.rect.centerx, self.rect.top - 20], [0, -5], 0.1),
                     Sprite(Path("res", "images", "player_skins", "helicopter.png"), 7, 0.1),
                     chunk=0
                 )
