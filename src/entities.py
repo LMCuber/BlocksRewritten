@@ -53,7 +53,7 @@ class RenderSystem:
     def __init__(self, display):
         self.display = display
         self.set_cache(True)
-    
+
     def process(self, scroll, world, chunks):
         for tr, sprite in self.get_components(chunks):
             # physics
