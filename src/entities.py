@@ -40,6 +40,12 @@ class PlayerFollower:
     acc: Optional[bool] = False
 
 
+@dataclass
+@component
+class Despawner:
+    time: float
+
+
 # create_entity(
 #     Transform([0, -400], [1, 0.0], 0.1),
 #     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
@@ -116,3 +122,9 @@ class PlayerFollowerSystem:
                 tr.vel[0] *= -1
             elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
                 tr.vel[0] *= -1
+
+
+@system(Despawner)
+class DespawnerSystem:
+    def __init__(self):
+        pass
