@@ -13,7 +13,7 @@ class Window:
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 3)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_PROFILE_MASK, pygame.GL_CONTEXT_PROFILE_CORE)
         pygame.display.gl_set_attribute(pygame.GL_CONTEXT_FORWARD_COMPATIBLE_FLAG, True)
-        # pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, vsync)
+        pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, vsync)
         self.width = width
         self.height = height
         self.vsync = vsync

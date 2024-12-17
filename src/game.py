@@ -67,7 +67,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick(0) / (1 / 144 * 1000)
+            dt = self.clock.tick() / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
