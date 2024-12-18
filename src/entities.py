@@ -61,7 +61,7 @@ class RenderSystem:
         self.set_cache(True)
 
     def process(self, scroll, world, chunks):
-        for tr, sprite in self.get_components(chunks):
+        for ent, (tr, sprite) in self.get_components(chunks):
             # physics
             tr.vel[1] += tr.gravity
             tr.pos[1] += tr.vel[1]
@@ -117,7 +117,7 @@ class PlayerFollowerSystem:
         self.set_cache(True)
     
     def process(self, player, chunks):
-        for pf, tr, sprite in self.get_components(chunks):
+        for ent, (pf, tr, sprite) in self.get_components(chunks):
             if tr.pos[0] + sprite.rect.width / 2 > player.rect.centerx and tr.vel[0] > 0:
                 tr.vel[0] *= -1
             elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
