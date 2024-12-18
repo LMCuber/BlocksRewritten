@@ -30,6 +30,7 @@ class Player:
             if event.button == 1:
                 create_entity(
                     Transform([self.rect.centerx, self.rect.top - 20], [0, -5], 0.1),
+                    Rigidbody(-2),
                     Sprite(Path("res", "images", "player_skins", "helicopter.png"), 7, 0.1),
                     chunk=0
                 )

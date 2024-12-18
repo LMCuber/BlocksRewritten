@@ -15,6 +15,7 @@ from .engine import *
 del Window, Renderer, Texture, Image
 
 
+# COMPONENTS
 @component
 @dataclass
 class Transform:
@@ -46,6 +47,12 @@ class Despawner:
     time: float
 
 
+@dataclass
+@component
+class Rigidbody:
+    bounce: float
+
+
 # create_entity(
 #     Transform([0, -400], [1, 0.0], 0.1),
 #     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
@@ -54,6 +61,7 @@ class Despawner:
 # )
 
 
+# SYSTEMS
 @system(Transform, Sprite)
 class RenderSystem:
     def __init__(self, display):
@@ -124,7 +132,7 @@ class PlayerFollowerSystem:
                 tr.vel[0] *= -1
 
 
-@system(Despawner)
-class DespawnerSystem:
-    def __init__(self):
-        pass
+# @system(Despawner)
+# class DespawnerSystem:
+#     def __init__(self):
+        

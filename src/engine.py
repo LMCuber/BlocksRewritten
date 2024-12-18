@@ -6,11 +6,31 @@ from random import uniform as randf
 from random import choice
 from math import sin
 from dataclasses import dataclass
-from math import floor, ceil
+from math import floor, ceil, log10
+import time
 
 
 S = 3
 BS = 10 * S
+
+
+# CONTEXT MANAGERS
+class Profile:
+    def __enter__(self):
+        self.last = time.perf_counter()
+        return self
+    
+    def __exit__(self, e_type, e_val, trace):
+        self.elapsed = sigfigs(time.perf_counter() - self.last, 3)
+
+
+# FUNCTIONS
+def sigfigs(x, n):
+    if x == 0:
+        return 0
+    mag = floor(log10(abs(x)))
+    scale = 10 ** (n - 1 - mag)
+    return round(x * scale) / scale
 
 
 def sign(n):
@@ -61,6 +81,7 @@ def imgload(*path, scale=1, frames=1, convert=False, convert_alpha=True):
 
 
 
+# CLASSES
 @dataclass
 class Global:
     gravity: float = 0.14
