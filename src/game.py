@@ -14,6 +14,7 @@ from src import world
 from src import player
 from src import fonts
 from src import joystick
+from src import menu
 
 
 
@@ -48,7 +49,8 @@ class Game:
         self.shader.send("res", (window.width, window.height))
 
         w = 120
-        self.shader.send("deadZone", (pygame.mouse.get_pos()[0] - w, pygame.mouse.get_pos()[1] - w, w * 2, w * 2))
+        # self.shader.send("deadZone", (pygame.mouse.get_pos()[0] - w, pygame.mouse.get_pos()[1] - w, w * 2, w * 2))
+        self.shader.send("deadZone", (window.width / 2 - w, window.height / 2 - w, w * 2, w * 2))
         o = 0
         self.shader.send("rOffset", (-o, 0))
         self.shader.send("gOffset", (0, 0))
@@ -67,7 +69,8 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick(144) / (1 / 144 * 1000)
+            window.target_fps = menu.target_fps.value
+            dt = self.clock.tick(window.target_fps) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -79,6 +82,12 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.running = False
+                    
+                    elif event.key == pygame.K_x:
+                        if window.target_fps < 100:
+                            window.target_fps = 165
+                        else:
+                            window.target_fps = 1
                 
                 elif event.type == pygame.VIDEORESIZE:
                     print(event.size)

@@ -136,7 +136,8 @@ class World:
                 blit_x, blit_y = rel_x * BS, rel_y * BS
                 block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
                 if chunk_y in (-1, 0):
-                    noise = int(osim.noise2(x=block_x * 0.08, y=0) * 8)
+                    # input, dispersion
+                    noise = int(osim.noise2(x=block_x * 0.01, y=0) * 8)
                 if chunk_y < -1:
                     # SKY
                     name = "air"

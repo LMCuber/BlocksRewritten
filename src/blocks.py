@@ -6,8 +6,8 @@ from .window import *
 
 
 d = Path("res", "images", "palettes")
-palette_img = imgload("res", "images", "palettes", choice(os.listdir(d)), convert_alpha=False)
-palette_img = imgload("res", "images", "palettes", "2000.png", convert_alpha=False)
+palette_img = imgload("res", "images", "palettes", choice(os.listdir(d)))
+palette_img = imgload("res", "images", "palettes", "2000.png")
 
 
 block_list = [
