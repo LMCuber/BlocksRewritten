@@ -3,12 +3,13 @@ from pathlib import Path
 import pygame
 from dataclasses import dataclass
 from typing import Optional
-from enum import Enum, auto
+from enum import Enum, IntFlag, auto
 #
 from pyengine.ecs import *
 from pyengine.pgbasics import *
 #
 from . import blocks
+from . import fonts
 from .engine import *
 
 
@@ -58,10 +59,22 @@ class Rigidbody:
     bounce: float
 
 
+class DebugFlags(IntFlag):
+    SHOW_CHUNK = auto()
+    SHOW_HITBOX = auto()
+
+
+@component
+class Debug(int):
+    pass
+
+
+# misc.
 create_entity(
     Transform([0, -400], [1, 0.0], TransformType.MOB, 0.1),
     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
     PlayerFollower(),
+    Debug(DebugFlags.SHOW_CHUNK),
     chunk=(0, 0)
 )
 
@@ -74,7 +87,7 @@ class RenderSystem:
         self.set_cache(True)
 
     def process(self, scroll, world, chunks):
-        for ent, (tr, sprite) in self.get_components(chunks):
+        for ent, chunk, (tr, sprite) in self.get_components(chunks):
             if tr.active:
                 # physics
                 tr.vel[1] += tr.gravity
@@ -146,14 +159,21 @@ class PlayerFollowerSystem:
         self.set_cache(True)
     
     def process(self, player, chunks):
-        for ent, (pf, tr, sprite) in self.get_components(chunks):
+        for ent, chunk, (pf, tr, sprite) in self.get_components(chunks):
             if tr.pos[0] + sprite.rect.width / 2 > player.rect.centerx and tr.vel[0] > 0:
                 tr.vel[0] *= -1
             elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
                 tr.vel[0] *= -1
 
 
-# @system(Despawner)
-# class DespawnerSystem:
-#     def __init__(self):
-        
+@system(Debug, Transform)
+class DebugSystem:
+    def __init__(self, display):
+        self.display = display
+        self.set_cache(True)
+    
+    def process(self, scroll, chunks):
+        for ent, chunk, (flags, tr) in self.get_components(chunks):
+            if flags & DebugFlags.SHOW_CHUNK:
+                blit_pos = (tr.pos[0] - scroll[0], tr.pos[1] - scroll[1])
+                write(self.display, "center", chunk, fonts.orbitron[20], BROWN, blit_pos[0], blit_pos[1] - 20)

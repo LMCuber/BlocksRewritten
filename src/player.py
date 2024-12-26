@@ -20,7 +20,7 @@ class AnimMode(Enum):
 
 class AnimData:
     RUN = imgload("res", "images", "player_animations", "samurai", "run.png", scale=S, frames=8)
-    IDLE = imgload("res", "images", "player_animations", "samurai", "idle.png", scale=S, frames=4)
+    IDLE = imgload("res", "images", "player_animations", "samurai", "idle.png", scale=S, frames=1)
 
     @classmethod
     def get(cls, attr: AnimMode):

@@ -64,14 +64,16 @@ def get_blocks_around(rect, world, range_x=(-1, 2), range_y=(-1, 2)):
                 yield block_rect
 
 
-def imgload(*path, scale=1, frames=1, convert=False, convert_alpha=True):
+def imgload(*path, scale=1, frames=None, convert=False, convert_alpha=True):
     img = pygame.image.load(Path(*path))
     if convert:
         img = img.convert()
     elif convert_alpha:
         img = img.convert_alpha()
-    if frames == 1:
+    if frames is None:
         return pygame.transform.scale_by(img, scale)
+    elif frames == 1:
+        return [pygame.transform.scale_by(img, scale)]
     else:
         imgs = []
         w, h = img.width / frames, img.height

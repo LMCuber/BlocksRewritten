@@ -9,7 +9,7 @@ import pyengine.pgwidgets as pgw
 #
 from src.entities import *
 from src.window import *
-from src.shock import *
+from src.tools import *
 from src import world
 from src import player
 from src import fonts
@@ -24,19 +24,20 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_systems()
         self.shader = ModernglShader(Path("src", "shaders", "vertex.glsl"), Path("src", "shaders", "fragment.glsl"))
-        self.shock_gradient = imgload("res", "images", "visuals", "shock_gradient.jpg")
         # runtime objects
         self.world = world.World()
         self.player = player.Player(self.world)
         self.scroll = [0, 0]
-        self.shock = Shock(0, 0, 0, [0, 0])
         self.last_start = ticks()
         # joystick
         self.joystick = joystick.JoystickManager()
+        #
+        self.sword = get_sword((120, 120, 120))
     
     def init_systems(self):
         self.render_system = RenderSystem(window.display)
         self.player_follower_system = PlayerFollowerSystem(window.display)
+        self.debug_system = DebugSystem(window.display)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -70,7 +71,7 @@ class Game:
         self.running = True
         while self.running:
             window.target_fps = menu.target_fps.value
-            dt = self.clock.tick(window.target_fps) / (1 / 144 * 1000)
+            dt = self.clock.tick(144) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -93,8 +94,6 @@ class Game:
                     print(event.size)
                 
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # shock_pos = [event.pos[0] / window.width, event.pos[1] / window.height]
-                    # self.shock = Shock(0, 0, 0, shock_pos, active=True)
                     pass
 
             window.display.fill(SKY_BLUE)
@@ -109,18 +108,20 @@ class Game:
             # update the player
             self.player.update(window.display, self.scroll, dt)
 
-            # process the ECS systems
+            # process the ECS systems   
             self.render_system.process(self.scroll, self.world, chunks=processed_chunks)
             self.player_follower_system.process(self.player, chunks=processed_chunks)
+            self.debug_system.process(self.scroll, chunks=processed_chunks)
 
             # update the pyengine.pgwidgets
-            pgw.draw_and_update_widgets()
+            # pgw.draw_and_update_widgets()
 
             # display the fps
-            write(window.display, "topleft", int(self.clock.get_fps()), fonts.orbitron[20], BLACK, 5, 5)
+            write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], BLACK, 5, 5)
             if window.vsync:
                 write(window.display, "topleft", "vsync", fonts.orbitron[10], BLACK, 5, 24)
-            write(window.display, "topleft", f"{num_blocks} blocks", fonts.orbitron[15], BLACK, 5, 40)
+            write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], BLACK, 5, 40)
+            write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], BLACK, 5, 60)
 
             # --- DO RENDERING BEFORE THIS BLOCK ---
             self.send_data_to_shader()
@@ -132,5 +133,8 @@ class Game:
             pygame.display.flip()
 
             self.shader.release_all_textures()
+
+            # if ticks() - self.last_start >= 5_000:
+            #     self.running = False
 
         self.quit()

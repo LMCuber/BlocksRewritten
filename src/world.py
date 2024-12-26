@@ -164,8 +164,8 @@ class World:
     def update(self, display, scroll):
         num_blocks = 0
         processed_chunks = []
-        for yo in range(-3, 4):
-            for xo in range(-3, 4):
+        for yo in range(3):
+            for xo in range(4):
                 # init the chunk coordinates and other data
                 chunk_x = xo - 1 + int(round(scroll[0] / (CW * BS)))
                 chunk_y = yo - 1 + int(round(scroll[1] / (CH * BS)))
@@ -186,7 +186,7 @@ class World:
                     blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
                     display.blit(blocks.images[name], blit_pos)
                     num_blocks += 1
-                # display.blit(surf, chunk_topleft)
+                #display.blit(surf, chunk_topleft)
                 pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
                 write(display, "center", chunk_index, fonts.orbitron[20], (0, 0, 0), *chunk_rect.center)
                 #

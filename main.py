@@ -1,3 +1,5 @@
+import cProfile
+#
 from src.game import Game
 
 
