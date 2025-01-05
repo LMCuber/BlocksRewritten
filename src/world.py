@@ -88,12 +88,15 @@ class World:
                 name = og_name = self.data[chunk_index].get(block_pos, None)
                 # modify!
                 if name == "soil_f":
-                    # create_entity(
-                    #     Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 0), 0.0], glob.gravity*0),
-                    #     Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, 0.1),
-                    #     PlayerFollower(acc=True),
-                    #     chunk=chunk_index,
-                    # )
+                    if _chance(1 / 20):
+                        create_entity(
+                            Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 0.5), 0.0], TransformFlag(TransformFlags.MOB), 0.1),
+                            Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, randf(0.01, 0.07)),
+                            CollisionFlag(CollisionFlags.RECV),
+                            Health(100),
+                            PlayerFollower(),
+                            chunk=chunk_index
+                        )
                     # tree
                     if _chance(1 / 24):
                         tree_height = _rand(6, 8)

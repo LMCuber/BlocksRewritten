@@ -38,6 +38,8 @@ class Game:
         self.render_system = RenderSystem(window.display)
         self.player_follower_system = PlayerFollowerSystem(window.display)
         self.debug_system = DebugSystem(window.display)
+        self.collision_system = CollisionSystem()
+        self.display_health_system = DisplayHealthSystem(window.display)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -111,7 +113,9 @@ class Game:
             # process the ECS systems   
             self.render_system.process(self.scroll, self.world, chunks=processed_chunks)
             self.player_follower_system.process(self.player, chunks=processed_chunks)
-            self.debug_system.process(self.scroll, chunks=processed_chunks)
+            # self.debug_system.process(self.scroll, chunks=processed_chunks)
+            self.collision_system.process(chunks=processed_chunks)
+            self.display_health_system.process(self.scroll, chunks=processed_chunks)
 
             # update the pyengine.pgwidgets
             # pgw.draw_and_update_widgets()

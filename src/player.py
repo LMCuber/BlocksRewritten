@@ -77,7 +77,8 @@ class Player:
                     xvel = cos(angle + ao * 0.1) * m
                     yvel = sin(angle + ao * 0.1) * m
                     create_entity(
-                        Transform([self.rect.centerx, self.rect.centery], [xvel, yvel], TransformType.PROJECTILE, 0.03),
+                        CollisionFlag(CollisionFlags.SEND),
+                        Transform([self.rect.centerx, self.rect.centery], [xvel, yvel], TransformFlag(TransformFlags.PROJECTILE), 0.03),
                         Sprite(Path("res", "images", "bullet.png"), 1, 0.1),
                         chunk=0
                     )
