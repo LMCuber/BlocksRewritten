@@ -42,12 +42,7 @@ vec3 palettize(vec4 cur) {
             closestColor = paletteColor.rgb;
         }
     }
-    // WINDOWS ONLY!!!! IMPORTANT BECAUSE OF BRGRA OPENGL MADNESS!!
-    if (true) {
-        return closestColor.rgb;
-    } else {
-        return closestColor.bgr;
-    }
+    return closestColor;
 }
 
 vec3 chromab(vec4 color, vec2 pos, bool pallet, bool dropoff) {

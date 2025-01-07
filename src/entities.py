@@ -49,10 +49,6 @@ class MutInt:
         self.value -= x
         return self
 
-
-@component
-class Health(MutInt): pass
-
 @component
 class TransformFlag(int): pass
 
@@ -87,6 +83,16 @@ class Rigidbody:
     bounce: float
 
 
+@component
+class Health:
+    def __init__(self, value):
+        self.value = self.trail = self.max = value
+
+    def __isub__(self, n):
+        self.value -= n
+        return self
+
+
 # class components (classes with logical initialization)
 @component
 class Sprite:
@@ -98,6 +104,8 @@ class Sprite:
         self.anim = 0
         self.anim_speed = anim_speed
         self.rect = self.images[0].get_frect()
+        self.xo = self.rect.width / 2
+        self.yo = self.rect.height / 2
         self.avel = avel
         self.rot = 0
 
@@ -185,9 +193,9 @@ class PlayerFollowerSystem:
     
     def process(self, player, chunks):
         for ent, chunk, (pf, tr, sprite) in self.get_components(0, chunks=chunks):
-            if tr.pos[0] + sprite.rect.width / 2 > player.rect.centerx and tr.vel[0] > 0:
+            if tr.pos[0] + sprite.xo > player.rect.centerx and tr.vel[0] > 0:
                 tr.vel[0] *= -1
-            elif tr.pos[0] + sprite.rect.width / 2 < player.rect.centerx and tr.vel[0] < 0:
+            elif tr.pos[0] + sprite.xo < player.rect.centerx and tr.vel[0] < 0:
                 tr.vel[0] *= -1
 
 
@@ -218,15 +226,18 @@ class CollisionSystem:
         since I already use a chunk system which spatially divides the entities
         """
         # check the damage inflicters
-        for ent, chunk, (col_flag, tr, sprite) in self.get_components(0, chunks=chunks):
-            if col_flag & CollisionFlags.SEND:
-                rect = pygame.Rect(tr.pos, sprite.rect.size)
+        for s_ent, s_chunk, (s_col_flag, s_tr, s_sprite) in self.get_components(0, chunks=chunks):
+            if s_tr.active and s_col_flag & CollisionFlags.SEND:
+                s_rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
                 # check for damage receivers
-                for ent2, chunk2, (col_flag2, tr2, sprite2, health2) in self.get_components(1, chunks=chunks):
-                    if col_flag2 & CollisionFlags.RECV:
-                        rect2 = pygame.Rect(tr2.pos, sprite2.rect.size)
-                        if rect.colliderect(rect2):
-                            sprite2.images = sprite2.fimages = [pygame.Surface((30, 30))]
+                for r_ent, r_chunk, (r_col_flag, r_tr, r_sprite, r_health) in self.get_components(1, chunks=chunks):
+                    if r_col_flag & CollisionFlags.RECV:
+                        r_rect = pygame.Rect(r_tr.pos, r_sprite.rect.size)
+                        if s_rect.colliderect(r_rect):
+                            r_health -= rand(4, 14)
+                            # check if the receiver is dead
+                            if r_health.value <= 0:
+                                r_sprite.images = r_sprite.fimages = [pygame.Surface((30, 30))]
 
 
 @system
@@ -237,6 +248,17 @@ class DisplayHealthSystem:
         self.operates(Health, Transform, Sprite)
     
     def process(self, scroll, chunks):
-        for ent, chunk, (health, tr, sprite) in self.get_components(0, chunks=chunks):
-            blit_pos = (tr.pos[0] - scroll[0], tr.pos[1] - scroll[1])
-            write(self.display, "center", health, fonts.orbitron[20], BROWN, blit_pos[0], blit_pos[1] - 40)
+        for _, _, (health, tr, sprite) in self.get_components(0, chunks=chunks):
+            if health.value > 0:
+                # process the animation
+                health.trail -= (health.trail - health.value) * 0.03
+                # display the health bar
+                bg_rect = pygame.Rect(0, 0, 70, 10)
+                bg_rect.midtop = (tr.pos[0] + sprite.xo - scroll[0], tr.pos[1] - 20 - scroll[1])
+                pygame.draw.rect(self.display, BLACK, bg_rect)
+                hl_rect = bg_rect.inflate(-4, -4)
+                hl_rect.width *= health.value / health.max
+                tr_rect = bg_rect.inflate(-4, -4)
+                tr_rect.width *= health.trail / health.max
+                pygame.draw.rect(self.display, PINK, tr_rect)
+                pygame.draw.rect(self.display, RED, hl_rect)
