@@ -90,8 +90,13 @@ class World:
                 if name == "soil_f":
                     if _chance(1 / 20):
                         create_entity(
+<<<<<<< HEAD
                             Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 0.5), 0.0], TransformFlag(TransformFlags.MOB), 0.1),
                             Sprite(Path("res", "images", "mobs", "fluff_camel", "walk.png"), 4, randf(0.01, 0.07)),
+=======
+                            Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 00), 0.0], TransformFlag(TransformFlags.MOB), 0.1),
+                            Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, randf(0.01, 0.07)),
+>>>>>>> dd53dc23e21a1b25d949190ba82fde7c4195649c
                             CollisionFlag(CollisionFlags.RECV),
                             Health(100),
                             PlayerFollower(),

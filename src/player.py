@@ -71,7 +71,7 @@ class Player:
                 m = pygame.mouse.get_pos()
                 dy = m[1] - window.height / 2
                 dx = m[0] - window.width / 2
-                m = 4
+                m = 10
                 for ao in range(1):
                     angle = atan2(dy, dx)
                     xvel = cos(angle + ao * 0.1) * m
