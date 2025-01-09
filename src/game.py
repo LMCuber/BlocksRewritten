@@ -73,7 +73,7 @@ class Game:
         self.running = True
         while self.running:
             window.target_fps = menu.target_fps.value
-            dt = self.clock.tick(144) / (1 / 144 * 1000)
+            dt = self.clock.tick(165) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)

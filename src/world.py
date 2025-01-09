@@ -91,7 +91,7 @@ class World:
                     if _chance(1 / 20):
                         create_entity(
                             Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 0.5), 0.0], TransformFlag(TransformFlags.MOB), 0.1),
-                            Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, randf(0.01, 0.07)),
+                            Sprite(Path("res", "images", "mobs", "fluff_camel", "walk.png"), 4, randf(0.01, 0.07)),
                             CollisionFlag(CollisionFlags.RECV),
                             Health(100),
                             PlayerFollower(),

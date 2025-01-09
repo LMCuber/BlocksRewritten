@@ -48,6 +48,14 @@ class MutInt:
     def __isub__(self, x):
         self.value -= x
         return self
+    
+    def __imul__(self, x):
+        self.value *= x
+        return self
+    
+    def __idiv__(self, x):
+        self.value /= x
+        return self
 
 
 @component
@@ -121,7 +129,8 @@ class RenderSystem:
                 x_disp = ceil(abs(tr.vel[0] / BS))
                 range_x = (-x_disp, x_disp + 1)
                 y_disp = ceil(abs(tr.vel[1] / BS))
-                range_y = (-y_disp, y_disp + 1)
+                range_y = (-y_disp, y_disp + 1 + 3)
+
                 for rect in get_blocks_around(sprite.rect, world, range_x=range_x, range_y=range_y):
                     pygame.draw.rect(self.display, pygame.Color("orange"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if sprite.rect.colliderect(rect):
@@ -174,6 +183,8 @@ class RenderSystem:
                 img = (sprite.images if tr.vel[0] > 0 else sprite.fimages)[int(sprite.anim)]
                 # render sprite
                 self.display.blit(img, blit_pos)
+            
+            pygame.draw.rect(self.display, (0, 255, 0), (sprite.rect.x - scroll[0], sprite.rect.y - scroll[1], *sprite.rect.size), 1)
 
 
 @system
