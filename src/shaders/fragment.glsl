@@ -4,12 +4,14 @@ uniform sampler2D tex;
 uniform sampler2D paletteTex;
 
 uniform float time;
+uniform vec3 pink;
 uniform vec2 centerWin;
 uniform vec2 res;
 uniform vec2 rOffset;
 uniform vec2 gOffset;
 uniform vec2 bOffset;
 uniform vec4 deadZone;
+uniform bool grayscale;
 
 uniform vec2 lightPosWin;
 uniform float lightPowerWin;
@@ -21,6 +23,10 @@ in vec2 pos;
 
 out vec4 fColor;
 
+// F U N C T I O N S
+vec3 rbg_to_gray(vec3 c) {
+    return c == pink ? pink : vec3(0.2989 * c.r + 0.5870 * c.g + 0.1140 * c.b);
+}
 
 float colorDiff(vec4 c1, vec4 c2) {
     return sqrt(pow(c2.r - c1.r, 2) + pow(c2.g - c1.g, 2) + pow(c2.b - c1.b, 2));
@@ -64,17 +70,20 @@ void main() {
     vec4 cur = texture(tex, pos);
     vec2 scaledPos = vec2((pos.x - 0.5) / dyDx + 0.5, pos.y);
 
-    // cheeck foor deaad aareas
+    // check dead areas
     if (aabb(pos * res, deadZone)) {
         fColor = cur;
         return;
     }
 
-    // color palette
-    color = palettize(cur);
-    
-    // chromatic aberration
+    // when grayscale, then just make it grayscale
+    if (grayscale) {
+        fColor = vec4(rbg_to_gray(cur.rgb), cur.a);
+    } else {
+        // color palette
+        color = palettize(cur);
 
-    // set final color
-    fColor = vec4(color, texture(tex, pos).a);
+        // set final color
+        fColor = vec4(color, texture(tex, pos).a);
+    }
 }
