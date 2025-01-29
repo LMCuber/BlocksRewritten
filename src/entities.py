@@ -50,6 +50,7 @@ class MutInt:
         self.value -= x
         return self
     
+<<<<<<< HEAD
     def __and__(self, other):
         return self.value & other
     
@@ -59,6 +60,15 @@ class MutInt:
     def set(self, n):  # n is a Flag, so bit_length() - 1 returns the number of bits (16 -> 4 because 2**4 == 16)
         self.value |= (1 << (n.bit_length() - 1))
 
+=======
+    def __imul__(self, x):
+        self.value *= x
+        return self
+    
+    def __idiv__(self, x):
+        self.value /= x
+        return self
+>>>>>>> 34c1414115d292aaf1e3551de526768d0d2a6a7a
 
 @component
 class TransformFlag(int): pass
@@ -139,10 +149,17 @@ class RenderSystem:
 
                 x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(sprite.xo / BS)
                 range_x = (-x_disp, x_disp + 1)
+<<<<<<< HEAD
                 y_disp = ceil(abs(tr.vel[1] / BS)) + ceil(sprite.yo / BS)
                 range_y = (-y_disp, y_disp + 1)
                 
                 for rect in world.get_blocks_around(sprite.rect, range_x=range_x, range_y=range_y):
+=======
+                y_disp = ceil(abs(tr.vel[1] / BS))
+                range_y = (-y_disp, y_disp + 1 + 3)
+
+                for rect in get_blocks_around(sprite.rect, world, range_x=range_x, range_y=range_y):
+>>>>>>> 34c1414115d292aaf1e3551de526768d0d2a6a7a
                     pygame.draw.rect(self.display, pygame.Color("orange"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if sprite.rect.colliderect(rect):
                         if tr.vel[1] > 0:
@@ -194,6 +211,8 @@ class RenderSystem:
                 img = (sprite.images if tr.vel[0] > 0 else sprite.fimages)[int(sprite.anim)]
                 # render sprite
                 self.display.blit(img, blit_pos)
+            
+            pygame.draw.rect(self.display, (0, 255, 0), (sprite.rect.x - scroll[0], sprite.rect.y - scroll[1], *sprite.rect.size), 1)
 
 
 @system
