@@ -5,6 +5,7 @@ from random import randint as rand
 from random import uniform as randf
 from random import choice
 from math import sin, log as ln
+from enum import Enum, auto
 from dataclasses import dataclass
 from math import floor, ceil, log10
 import time
@@ -77,6 +78,16 @@ def imgload(*path, scale=1, frames=None, convert=False, convert_alpha=True):
 @dataclass
 class Global:
     gravity: float = 0.14
+
+
+class States(Enum):
+    START = auto()
+    PLAY = auto()
+
+
+class Substates(Enum):
+    PLAY = auto()
+    MENU = auto()
 
 
 glob = Global()

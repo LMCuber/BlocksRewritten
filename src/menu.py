@@ -13,8 +13,10 @@ target_fps = pgw.Slider(window.display, "Hor. Render Distance", [3, 30, 60, 120,
 # target_fps.enable()
 
 widgets = SmartList([ 
-    pgw.Checkbox(window.display, "Hitboxes", **kwargs),
-    pgw.Button(window.display, "Quit", lambda: None, pos=(300, 300), **kwargs | button_kwargs),
+    pgw.Checkbox(window.display, "Hitboxes", pos=(300, 270), **kwargs),
+    pgw.Checkbox(window.display, "Chunk Borders", pos=(300, 300), **kwargs),
+    pgw.Button(window.display, "Quit", lambda: None, pos=(300, 330), **kwargs | button_kwargs),
 ])
 hitboxes = widgets.find(lambda x: x.text == "Hitboxes")
+chunk_borders = widgets.find(lambda x: x.text == "Chunk Borders")
 quit_button = widgets.find(lambda x: x.text == "Quit")

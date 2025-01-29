@@ -17,16 +17,6 @@ from src import joystick
 from src import menu
 
 
-class States(Enum):
-    START = auto()
-    PLAY = auto()
-
-
-class Substates(Enum):
-    PLAY = auto()
-    MENU = auto()
-
-
 class Game:
     def __init__(self):
         # initialization stuff
@@ -35,8 +25,8 @@ class Game:
         self.init_systems()
         self.shader = ModernglShader(Path("src", "shaders", "vertex.glsl"), Path("src", "shaders", "fragment.glsl"))
         # runtime objects
-        self.world = world.World()
-        self.player = player.Player(self.world)
+        self.world = world.World(menu)
+        self.player = player.Player(self, self.world, menu)
         self.scroll = [0, 0]
         self.last_start = ticks()
         self.state = States.PLAY
@@ -72,7 +62,8 @@ class Game:
 
         w = 120
         # self.shader.send("deadZone", (pygame.mouse.get_pos()[0] - w, pygame.mouse.get_pos()[1] - w, w * 2, w * 2))
-        self.shader.send("deadZone", (window.width / 2 - w, window.height / 2 - w, w * 2, w * 2))
+        # self.shader.send("deadZone", (window.width / 2 - w, window.height / 2 - w, w * 2, w * 2))
+        self.shader.send("deadZone", (0, 0, 0, 0))
         o = 0
         self.shader.send("rOffset", (-o, 0))
         self.shader.send("gOffset", (0, 0))
@@ -137,7 +128,7 @@ class Game:
                 processed_chunks.append(0)  # the "global" chunk, so entities that update always
 
                 # update the player
-                self.player.update(window.display, self.scroll, block_rects, dt)
+                self.player.update(window.display, block_rects, dt)
 
                 # process the ECS systems   
                 self.render_system.process(self.scroll, self.world, chunks=processed_chunks)

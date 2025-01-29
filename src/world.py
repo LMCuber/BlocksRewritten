@@ -52,7 +52,9 @@ def octave_noise(x, y, freq, amp=1, octaves=1, lac=1, pers=1):
 
 
 class World:
-    def __init__(self):
+    def __init__(self, menu):
+        self.menu = menu
+
         self.data = {}
         self.late_data = {}
         self.chunk_surfaces = {}
