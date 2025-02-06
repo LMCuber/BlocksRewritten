@@ -31,7 +31,8 @@ class DebugFlags(IntFlag):
 class CollisionFlags(IntFlag):
     SEND = auto()
     RECV = auto()
-
+    INACTIVE = auto()
+    
 
 # primitive components (int, float, str, etc.)
 class MutInt:
@@ -39,7 +40,7 @@ class MutInt:
         self.value = value
     
     def __repr__(self):
-        return f"MutInt({self.value})"
+        return f"MutInt({str(bin(self.value)).removeprefix("0b")})"
     
     def __iadd__(self, x):
         self.value += x
@@ -49,6 +50,17 @@ class MutInt:
         self.value -= x
         return self
     
+<<<<<<< HEAD
+    def __and__(self, other):
+        return self.value & other
+    
+    def __rand__(self, other):
+        return self.value & other
+    
+    def set(self, n):  # n is a Flag, so bit_length() - 1 returns the number of bits (16 -> 4 because 2**4 == 16)
+        self.value |= (1 << (n.bit_length() - 1))
+
+=======
     def __imul__(self, x):
         self.value *= x
         return self
@@ -56,6 +68,7 @@ class MutInt:
     def __idiv__(self, x):
         self.value /= x
         return self
+>>>>>>> 34c1414115d292aaf1e3551de526768d0d2a6a7a
 
 @component
 class TransformFlag(int): pass
@@ -64,7 +77,7 @@ class TransformFlag(int): pass
 class DebugFlag(int): pass
 
 @component
-class CollisionFlag(int): pass
+class CollisionFlag(MutInt): pass
 
 
 # dataclass components (structs without logical initialization)
@@ -134,12 +147,19 @@ class RenderSystem:
                 tr.pos[1] += tr.vel[1]
                 sprite.rect.topleft = tr.pos
 
-                x_disp = ceil(abs(tr.vel[0] / BS))
-                range_x = (-x_disp - 1, x_disp + 1 + 1)
+                x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(sprite.xo / BS)
+                range_x = (-x_disp, x_disp + 1)
+<<<<<<< HEAD
+                y_disp = ceil(abs(tr.vel[1] / BS)) + ceil(sprite.yo / BS)
+                range_y = (-y_disp, y_disp + 1)
+                
+                for rect in world.get_blocks_around(sprite.rect, range_x=range_x, range_y=range_y):
+=======
                 y_disp = ceil(abs(tr.vel[1] / BS))
                 range_y = (-y_disp, y_disp + 1 + 3)
 
                 for rect in get_blocks_around(sprite.rect, world, range_x=range_x, range_y=range_y):
+>>>>>>> 34c1414115d292aaf1e3551de526768d0d2a6a7a
                     pygame.draw.rect(self.display, pygame.Color("orange"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if sprite.rect.colliderect(rect):
                         if tr.vel[1] > 0:
@@ -157,7 +177,7 @@ class RenderSystem:
                 tr.pos[0] += tr.vel[0]
                 sprite.rect.topleft = tr.pos
 
-                for rect in get_blocks_around(sprite.rect, world, range_x=range_x, range_y=range_y):
+                for rect in world.get_blocks_around(sprite.rect, range_x=range_x, range_y=range_y):
                     pygame.draw.rect(self.display, pygame.Color("cyan"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if sprite.rect.colliderect(rect):
                         if tr.vel[0] > 0:
@@ -173,7 +193,7 @@ class RenderSystem:
                 if tr.flag & TransformFlags.MOB:
                     extended_rect = inflate_keep(sprite.rect, 20 * sign(tr.vel[0]))
                     # pygame.draw.rect(self.display, (120, 120, 120), (extended_rect.x - scroll[0], extended_rect.y - scroll[1], *extended_rect.size), 1)
-                    for rect in get_blocks_around(extended_rect, world):
+                    for rect in world.get_blocks_around(extended_rect):
                         if extended_rect.colliderect(rect):
                             tr.vel[1] = -3
 
@@ -242,13 +262,16 @@ class CollisionSystem:
                 s_rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
                 # check for damage receivers
                 for r_ent, r_chunk, (r_col_flag, r_tr, r_sprite, r_health) in self.get_components(1, chunks=chunks):
-                    if r_col_flag & CollisionFlags.RECV:
+                    if r_col_flag & CollisionFlags.RECV and not (s_col_flag & CollisionFlags.INACTIVE):
+                        # HIT!!!
                         r_rect = pygame.Rect(r_tr.pos, r_sprite.rect.size)
                         if s_rect.colliderect(r_rect):
                             r_health -= rand(4, 14)
                             # check if the receiver is dead
                             if r_health.value <= 0:
                                 r_sprite.images = r_sprite.fimages = [pygame.Surface((30, 30))]
+                            # make the bullet inactive
+                            s_col_flag.set(CollisionFlags.INACTIVE)
 
 
 @system
@@ -260,7 +283,7 @@ class DisplayHealthSystem:
     
     def process(self, scroll, chunks):
         for _, _, (health, tr, sprite) in self.get_components(0, chunks=chunks):
-            if health.value > 0:
+            if 0 < health.value < health.max:
                 # process the animation
                 health.trail -= (health.trail - health.value) * 0.03
                 # display the health bar

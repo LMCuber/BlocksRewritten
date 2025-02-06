@@ -27,17 +27,26 @@ class AnimData:
         return getattr(cls, attr.name)
 
 
+class Action(Enum):
+    PLACE = auto()
+    BREAK = auto()
+    NONE = auto()
+
+
 class Player:
-    def __init__(self, world):
-        # formalities
+    def __init__(self, game, world, menu):
+        # pointers to lobal game objects
+        self.game = game
         self.world = world
+        self.menu = menu
         # animation parameters
         self.anim_index = 0  # index of spritesheet
-        self.anim_vel = 0.1  # animation speed
+        self.anim_vel = 0.08  # animation speed
         self.anim_mode = AnimMode.IDLE  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_mode)
-        self.rect = self.images[0].get_frect(topleft=(0, -100))
+        # self.rect = self.images[0].get_frect(topleft=(0, -100))
+        self.rect = pygame.FRect((0, -100, 80, 80))
         # physics
         self.yvel = 0
         self.xvel = 0
@@ -45,8 +54,10 @@ class Player:
         # keyboard input
         self.jumps_left = 2
         self.pressing_jump = False
+        # actions with blocks
+        self.action = Action.NONE
     
-    def draw(self, display, scroll):
+    def draw(self, display):
         # get the current animation image
         self.images = AnimData.get(self.anim_mode)
         self.anim_index += self.anim_vel
@@ -60,13 +71,22 @@ class Player:
         if self.xvel < 0:
             image = pygame.transform.flip(image, True, False)
         # render the player
-        scroll_rect = pygame.Rect(self.rect.x - scroll[0], self.rect.y - scroll[1], *self.rect.size)
-        display.blit(image, scroll_rect)
-        pygame.draw.rect(window.display, LIGHT_GREEN, scroll_rect, 2)
+        self.game.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
+        image_rect = image.get_rect(center=self.game.scrolled_rect.center)
+        display.blit(image, image_rect)
+        
+        # show the hitboxes
+        if self.menu.hitboxes.checked:
+            pygame.draw.rect(window.display, LIGHT_GREEN, self.game.scrolled_rect, 1)
+            # pygame.draw.rect(window.display, ORANGE, image_rect, 1)
     
     def process_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
+                if self.action == Action.NONE:
+                    self.action = Action.BREAK
+
+                """
                 # shoow a bullet entity
                 m = pygame.mouse.get_pos()
                 dy = m[1] - window.height / 2
@@ -82,8 +102,32 @@ class Player:
                         Sprite(Path("res", "images", "bullet.png"), 1, 0.1),
                         chunk=0
                     )
+                """
+            elif event.button == 3:
+                if self.action == Action.NONE:
+                    self.action = Action.PLACE
+
+        elif event.type == pygame.MOUSEBUTTONUP:
+            self.action = Action.NONE
     
-    def move(self, scroll, dt):
+    def interact(self, block_rects):
+        if self.game.substate == Substates.PLAY:
+            # get mouse data
+            mouse = pygame.mouse.get_pos()
+            mouses = pygame.mouse.get_pressed()
+            if mouses[0] or mouses[2]:
+                chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
+                if mouses[0]:
+                    if self.action == Action.BREAK:
+                        for xo, yo in product(range(-1, 2), repeat=2):
+                            new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                            if new_block_pos in self.world.data[new_chunk_index]:
+                                del self.world.data[new_chunk_index][new_block_pos]
+                elif mouses[2]:
+                    if self.action == Action.PLACE:
+                        self.world.data[chunk_index][block_pos] = "dynamite"
+
+    def move(self, dt):
         # init
         keys = pygame.key.get_pressed()
         
@@ -104,8 +148,7 @@ class Player:
             self.anim_mode = AnimMode.RUN
         
         # collision X
-        for rect in get_blocks_around(self.rect, self.world, range_x=(-3, 4), range_y=(-3, 4)):
-            pygame.draw.rect(window.display, CYAN, (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
+        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
             if self.rect.colliderect(rect):
                 if self.direc == Direction.RIGHT:
                     self.rect.right = rect.left
@@ -124,8 +167,7 @@ class Player:
 
         # collision Y
         # TODO: the range of the collision in the y-direction to account for movement
-        for rect in get_blocks_around(self.rect, self.world, range_x=(-3, 4), range_y=(-3, 4)):
-            pygame.draw.rect(window.display, CYAN, (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
+        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
             if self.rect.colliderect(rect):
                 if self.yvel > 0:
                     self.rect.bottom = rect.top
@@ -140,7 +182,8 @@ class Player:
         self.jumps_left -= 1
         self.pressing_jump = True
     
-    def update(self, display, scroll, dt):
-        self.move(scroll, dt)
-        self.draw(display, scroll)
+    def update(self, display, block_rects, dt):
+        self.move(dt)
+        self.interact(block_rects)
+        self.draw(display)
         
