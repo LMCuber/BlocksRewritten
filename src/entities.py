@@ -135,7 +135,7 @@ class RenderSystem:
                 sprite.rect.topleft = tr.pos
 
                 x_disp = ceil(abs(tr.vel[0] / BS))
-                range_x = (-x_disp, x_disp + 1)
+                range_x = (-x_disp - 1, x_disp + 1 + 1)
                 y_disp = ceil(abs(tr.vel[1] / BS))
                 range_y = (-y_disp, y_disp + 1 + 3)
 
