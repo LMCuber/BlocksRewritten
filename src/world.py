@@ -159,40 +159,6 @@ class World:
                 blit_x, blit_y = rel_x * BS, rel_y * BS
                 block_pos = block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
                 name = og_name = self.data[chunk_index].get(block_pos, None)
-<<<<<<< HEAD
-                # modify!
-                if name == "soil_f":
-                    if _chance(1 / 20):
-                        create_entity(
-                            Transform([block_pos[0] * BS, (block_pos[1] - 2) * BS], [randf(0, 0.5), 0.0], TransformFlag(TransformFlags.MOB), 0.1),
-                            Sprite(Path("res", "images", "mobs", "penguin", "walk.png"), 4, randf(0.01, 0.07)),
-                            CollisionFlag(CollisionFlags.RECV),
-                            Health(100),
-                            PlayerFollower(),
-                            chunk=chunk_index
-                        )
-                    # tree
-                    if _chance(1 / 24):
-                        tree_height = _rand(6, 8)
-                        for tree_yo in range(tree_height):
-                            wood_x, wood_y = block_x, block_y - tree_yo - 1
-                            wood_suffix = ""
-                            leaf_name = "leaf_f"
-                            leaf_chance = 1 / 2.4
-                            if tree_yo > 0:
-                                if _chance(leaf_chance):
-                                    wood_suffix += "L"
-                                    _set(leaf_name, (wood_x - 1, wood_y))
-                                if _chance(leaf_chance):
-                                    wood_suffix += "R"
-                                    _set(leaf_name, (wood_x + 1, wood_y))
-                                if tree_yo == tree_height - 1:
-                                    wood_suffix += "T"
-                                    _set(leaf_name, (wood_x, wood_y - 1))
-                            wood_suffix = "N" if not wood_suffix else wood_suffix
-                            wood_name = f"wood_f_vr{wood_suffix}"
-                            _set(wood_name, (wood_x, wood_y))
-=======
 
                 # topmost block (soil or something)
                 if name == bio.blocks[biome][0] and _get((block_x, block_y - 1)) == "air":
@@ -238,7 +204,6 @@ class World:
                             _set("leaf_f", (wood_x, wood_y - 1))
                             _set("leaf_f", (wood_x + 1, wood_y))
 
->>>>>>> d22e9dcf829be15c2a3f215d41920abdc6aee8d8
                 # update chunk data and blit block image
                 if name != og_name:
                     self.data[chunk_index][block_pos] = name
