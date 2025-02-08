@@ -30,4 +30,6 @@ _spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
 for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
         images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
+
+breaking_sprs = imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
         

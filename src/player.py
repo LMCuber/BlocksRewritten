@@ -119,10 +119,21 @@ class Player:
                 chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
                 if mouses[0]:
                     if self.action == Action.BREAK:
-                        for xo, yo in product(range(-1, 2), repeat=2):
-                            new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
-                            if new_block_pos in self.world.data[new_chunk_index]:
-                                del self.world.data[new_chunk_index][new_block_pos]
+                        # for xo, yo in product(range(-1, 2), repeat=2):
+                        #     new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                        #     if new_block_pos in self.world.data[new_chunk_index]:
+                        #         del self.world.data[new_chunk_index][new_block_pos]
+                        if block_pos in self.world.data[chunk_index]:
+                            # del self.world.data[chunk_index][block_pos]
+                            # increase the world breaking
+                            if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
+                                # break block since it already began breaking
+                                self.world.breaking.anim += 0.07
+                            else:
+                                # switch to new block
+                                self.world.breaking.index = chunk_index
+                                self.world.breaking.pos = block_pos
+                                self.world.breaking.anim = 0
                 elif mouses[2]:
                     if self.action == Action.PLACE:
                         self.world.data[chunk_index][block_pos] = "dynamite"
