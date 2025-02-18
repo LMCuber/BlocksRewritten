@@ -13,19 +13,21 @@ class Direction(Enum):
     RIGHT = auto()
 
 
-class AnimMode(Enum):
-    RUN = auto()
-    IDLE = auto()
-
-
 class AnimData:
-    RUN = imgload("res", "images", "player_animations", "samurai", "run.png", scale=S, frames=8)
-    IDLE = imgload("res", "images", "player_animations", "samurai", "idle.png", scale=S, frames=1)
+    with open(Path("res", "data", "player_animations.json")) as f:
+        data = json.load(f)
+    images = {}
+    for skin in data:
+        images[skin] = {}
+        for mode in data[skin]:
+            images[skin][mode] = imgload("res", "images", "player_animations", skin, f"{mode}.png", scale=S, frames=data[skin][mode]["frames"])
 
     @classmethod
-    def get(cls, attr: AnimMode):
-        return getattr(cls, attr.name)
-
+    def get(cls, skin, attr):
+        if skin == "_default":
+            attr = "_default_" + attr
+        return cls.images[skin][attr]
+    
 
 class Action(Enum):
     PLACE = auto()
@@ -42,11 +44,11 @@ class Player:
         # animation parameters
         self.anim_index = 0  # index of spritesheet
         self.anim_vel = 0.08  # animation speed
-        self.anim_mode = AnimMode.IDLE  # e.g. walk, run, attack 1, etc.
+        self.anim_skin = "_default"
+        self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
-        self.images = AnimData.get(self.anim_mode)
-        # self.rect = self.images[0].get_frect(topleft=(0, -100))
-        self.rect = pygame.FRect((0, -100, 80, 80))
+        self.images = AnimData.get(self.anim_skin, self.anim_mode)
+        self.rect = pygame.FRect((0, -100, 52, 70))
         # physics
         self.yvel = 0
         self.xvel = 0
@@ -59,7 +61,7 @@ class Player:
     
     def draw(self, display):
         # get the current animation image
-        self.images = AnimData.get(self.anim_mode)
+        self.images = AnimData.get(self.anim_skin, self.anim_mode)
         self.anim_index += self.anim_vel
         try:
             image = self.images[int(self.anim_index)]
@@ -71,14 +73,14 @@ class Player:
         if self.xvel < 0:
             image = pygame.transform.flip(image, True, False)
         # render the player
-        self.game.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
-        image_rect = image.get_rect(center=self.game.scrolled_rect.center)
+        self.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
+        image_rect = image.get_rect(center=self.scrolled_rect.center)
         display.blit(image, image_rect)
         
         # show the hitboxes
         if self.menu.hitboxes.checked:
-            pygame.draw.rect(window.display, LIGHT_GREEN, self.game.scrolled_rect, 1)
-            # pygame.draw.rect(window.display, ORANGE, image_rect, 1)
+            pygame.draw.rect(window.display, LIGHT_GREEN, self.scrolled_rect, 1)
+            pygame.draw.rect(window.display, ORANGE, image_rect, 1)
     
     def process_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -109,6 +111,8 @@ class Player:
 
         elif event.type == pygame.MOUSEBUTTONUP:
             self.action = Action.NONE
+            self.world.breaking.index = None
+            self.world.breaking.pos = None
     
     def interact(self, block_rects):
         if self.game.substate == Substates.PLAY:
@@ -154,9 +158,9 @@ class Player:
             self.rect.x += self.xvel
             self.direc = Direction.RIGHT
         if not (keys[pygame.K_a] or keys[pygame.K_d]):
-            self.anim_mode = AnimMode.IDLE
+            self.anim_mode = "idle"
         else:
-            self.anim_mode = AnimMode.RUN
+            self.anim_mode = "run"
         
         # collision X
         for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):

@@ -27,6 +27,7 @@ class Game:
         # runtime objects
         self.world = world.World(menu)
         self.player = player.Player(self, self.world, menu)
+        self.fake_scroll = [0, 0]
         self.scroll = [0, 0]
         self.last_start = ticks()
         self.state = States.PLAY
@@ -75,8 +76,10 @@ class Game:
         # self.shader.send("lightPowerWin", 0)
 
     def apply_scroll(self, m):
-        self.scroll[0] += (self.player.rect.x - self.scroll[0] - window.width / 2 + self.player.rect.width / 2) * m
-        self.scroll[1] += (self.player.rect.y - self.scroll[1] - window.height / 2 + self.player.rect.height / 2) * m
+        self.fake_scroll[0] += (self.player.rect.x - self.fake_scroll[0] - window.width / 2 + self.player.rect.width / 2) * m
+        self.fake_scroll[1] += (self.player.rect.y - self.fake_scroll[1] - window.height / 2 + self.player.rect.height / 2) * m
+        self.scroll[0] = int(self.fake_scroll[0])
+        self.scroll[1] = int(self.fake_scroll[1])
     
     def quit(self):
         pygame.quit()
@@ -131,10 +134,9 @@ class Game:
                 self.player.update(window.display, block_rects, dt)
 
                 # process the ECS systems   
-                self.render_system.process(self.scroll, self.world, chunks=processed_chunks)
+                self.render_system.process(self.scroll, self.world, menu.hitboxes, chunks=processed_chunks)
                 self.player_follower_system.process(self.player, chunks=processed_chunks)
-                # self.debug_system.process(self.scroll, chunks=processed_chunks)
-                self.collision_system.process(chunks=processed_chunks)
+                self.collision_system.process(self.player, chunks=processed_chunks)
                 self.display_health_system.process(self.scroll, chunks=processed_chunks)
 
             # update the pyengine.pgwidgets

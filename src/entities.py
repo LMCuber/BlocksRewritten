@@ -18,9 +18,11 @@ del Window, Renderer, Texture, Image
 
 # COMPONENTS -----------------------------------------------------
 # enums of components (up here because the type hints otherwise do not compile)
+# DO NOT INSTANTIATE, THEY ARE MEANT TO BE WRAPPED INSIDE THE CORRESPONDING CLASSES, e.g. CollisionFlag(CollisionFlags.SEND | CollisionFlags.INACTIVE) or something ;)
 class TransformFlags(IntFlag):
     PROJECTILE = auto()
     MOB = auto()
+    NONE = auto()
 
 
 class DebugFlags(IntFlag):
@@ -31,10 +33,11 @@ class DebugFlags(IntFlag):
 class CollisionFlags(IntFlag):
     SEND = auto()
     RECV = auto()
+    DROP = auto()
     INACTIVE = auto()
-    
 
-# primitive components (int, float, str, etc.)
+
+# primitive components (int, float, str, etc.) (bool can't exist since only the True and False singletons can be bool)
 class MutInt:
     def __init__(self, value):
         self.value = value
@@ -67,6 +70,7 @@ class MutInt:
         self.value /= x
         return self
 
+
 @component
 class TransformFlag(int): pass
 
@@ -83,8 +87,8 @@ class CollisionFlag(MutInt): pass
 class Transform:
     pos: list[float, float]
     vel: list[float, float]
-    flag: TransformFlag
-    gravity: float
+    flag: TransformFlag = TransformFlag(TransformFlags.NONE)
+    gravity: float = 0
     acc: float = 0
     active: bool = True
 
@@ -99,7 +103,7 @@ class PlayerFollower:
 @component
 class Rigidbody:
     bounce: float
-
+    
 
 @component
 class Health:
@@ -114,7 +118,23 @@ class Health:
 # class components (classes with logical initialization)
 @component
 class Sprite:
-    def __init__(self, path, num_frames, anim_speed, avel=0):
+    @classmethod
+    def from_img(cls, img):
+        self = cls()
+        self.images = [img]
+        self.fimages = [pygame.transform.flip(image, True, False) for image in self.images]
+        self.anim = 0
+        self.anim_speed = 0
+        self.rect = self.images[0].get_frect()
+        self.xo = self.rect.width / 2
+        self.yo = self.rect.height / 2
+        self.avel = 0
+        self.rot = 0
+        return self
+
+    @classmethod
+    def from_path(cls, path, num_frames, anim_speed, avel=0):
+        self = cls()
         self.images = imgload(path, scale=S, frames=num_frames)
         if not isinstance(self.images, list):
             self.images = [self.images]
@@ -126,7 +146,8 @@ class Sprite:
         self.yo = self.rect.height / 2
         self.avel = avel
         self.rot = 0
-
+        return self
+    
 
 # SYSTEMS -----------------------------------------------------
 @system
@@ -136,7 +157,7 @@ class RenderSystem:
         self.set_cache(True)
         self.operates(Transform, Sprite)
 
-    def process(self, scroll, world, chunks):
+    def process(self, scroll, world, hitboxes, chunks):
         for ent, chunk, (tr, sprite) in self.get_components(0, chunks=chunks):
             if tr.active:
                 # physics
@@ -150,7 +171,8 @@ class RenderSystem:
                 range_y = (-y_disp, y_disp + 3)
                 
                 for rect in world.get_blocks_around(sprite.rect, range_x=range_x, range_y=range_y):
-                    pygame.draw.rect(self.display, pygame.Color("orange"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
+                    if hitboxes:
+                        pygame.draw.rect(self.display, pygame.Color("orange"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if sprite.rect.colliderect(rect):
                         if tr.vel[1] > 0:
                             tr.pos[1] = rect.top - sprite.rect.height
@@ -168,7 +190,8 @@ class RenderSystem:
                 sprite.rect.topleft = tr.pos
 
                 for rect in world.get_blocks_around(sprite.rect, range_x=range_x, range_y=range_y):
-                    pygame.draw.rect(self.display, pygame.Color("cyan"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
+                    if hitboxes:
+                        pygame.draw.rect(self.display, pygame.Color("cyan"), (rect.x - scroll[0], rect.y - scroll[1], *rect.size), 1)
                     if sprite.rect.colliderect(rect):
                         if tr.vel[0] > 0:
                             tr.pos[0] = rect.left - sprite.rect.width
@@ -202,7 +225,8 @@ class RenderSystem:
                 # render sprite
                 self.display.blit(img, blit_pos)
             
-            pygame.draw.rect(self.display, (0, 255, 0), (sprite.rect.x - scroll[0], sprite.rect.y - scroll[1], *sprite.rect.size), 1)
+            if hitboxes:
+                pygame.draw.rect(self.display, (0, 255, 0), (sprite.rect.x - scroll[0], sprite.rect.y - scroll[1], *sprite.rect.size), 1)
 
 
 @system
@@ -241,15 +265,15 @@ class CollisionSystem:
         self.operates(CollisionFlag, Transform, Sprite)
         self.operates(CollisionFlag, Transform, Sprite, Health)
     
-    def process(self, chunks):
+    def process(self, player, chunks):
         """
         O(n^2) collision detection, I don't think I'll need a quadtree for this
-        since I already use a chunk system which spatially divides the entities
+        since I already use a chunk system which is efficient enough
         """
         # check the damage inflicters
         for s_ent, s_chunk, (s_col_flag, s_tr, s_sprite) in self.get_components(0, chunks=chunks):
+            s_rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
             if s_tr.active and s_col_flag & CollisionFlags.SEND:
-                s_rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
                 # check for damage receivers
                 for r_ent, r_chunk, (r_col_flag, r_tr, r_sprite, r_health) in self.get_components(1, chunks=chunks):
                     if r_col_flag & CollisionFlags.RECV and not (s_col_flag & CollisionFlags.INACTIVE):
@@ -262,6 +286,11 @@ class CollisionSystem:
                                 r_sprite.images = r_sprite.fimages = [pygame.Surface((30, 30))]
                             # make the bullet inactive
                             s_col_flag.set(CollisionFlags.INACTIVE)
+                
+            # check for whether the entity is a dropped item that has to be picked up
+            if s_col_flag & CollisionFlags.DROP:
+                if s_rect.colliderect(player.rect):
+                    test("asd")
 
 
 @system

@@ -77,6 +77,9 @@ class World:
         # self.seed = 123
         osim.seed(self.seed)
         self.random = random.Random(self.seed)
+
+        # misc
+        self.lates = []
     
     def bpure(self, name):
         return name.split("|") if "|" in name else (name, "")
@@ -103,6 +106,12 @@ class World:
         abs_y = floor(y / BS + scroll[1] / BS)
         abs_pos = (abs_x, abs_y)
         return target_chunk, abs_pos
+
+    def tile_to_screen_pos(self, abs_pos, scroll):
+        abs_x, abs_y = abs_pos
+        screen_x = (abs_x - scroll[0]) * BS
+        screen_y = (abs_y - scroll[1]) * BS
+        return screen_x, screen_y
 
     def pos_to_tile(self, pos):
         return ((
@@ -273,6 +282,10 @@ class World:
         self.modify_chunk(chunk_index)
     
     def update(self, display, scroll):
+        # lates
+        for pos in self.lates:
+            pygame.draw.aacircle(display, RED, pos, 3)
+        # actual
         num_blocks = 0
         processed_chunks = []
         block_rects = []
@@ -319,8 +332,11 @@ class World:
             try:
                 blocks.breaking_sprs[int(self.breaking.anim)]
             except IndexError:
+                # drop the item
+                self.drop()
                 # break the block
                 del self.data[self.breaking.index][self.breaking.pos]
+                # reset the breaking
                 self.breaking.index = None
                 self.breaking.pos = None
             else:
@@ -328,3 +344,14 @@ class World:
                 display.blit(blocks.breaking_sprs[int(self.breaking.anim)], breaking_pos)
         # return information
         return num_blocks, processed_chunks, block_rects
+
+    def drop(self):
+        x = self.breaking.pos[0] * BS + BS / 2
+        y = self.breaking.pos[1] * BS + BS / 2
+        drop_img = pygame.transform.scale_by(blocks.images[self.data[self.breaking.index][self.breaking.pos]], 0.5)
+        create_entity(
+            Transform([x - BS / 4, y - BS / 4], [0, 0]),
+            Sprite.from_img(drop_img),
+            CollisionFlag(CollisionFlags.DROP),
+            chunk=0
+        )
