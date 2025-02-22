@@ -3,7 +3,6 @@ from pathlib import Path
 import pygame
 from dataclasses import dataclass
 from typing import Optional
-from enum import Enum, IntFlag, auto
 #
 from pyengine.ecs import *
 from pyengine.pgbasics import *
@@ -33,7 +32,6 @@ class DebugFlags(IntFlag):
 class CollisionFlags(IntFlag):
     SEND = auto()
     RECV = auto()
-    DROP = auto()
     INACTIVE = auto()
 
 
@@ -91,6 +89,11 @@ class Transform:
     gravity: float = 0
     acc: float = 0
     active: bool = True
+    sine: tuple[float, float] = (0, 0)
+
+    def __post_init__(self):
+        if any(self.sine):
+            self.sine_offset = randf(0, 2 * pi)
 
 
 @component
@@ -99,8 +102,8 @@ class PlayerFollower:
     ...
 
 
-@dataclass
 @component
+@dataclass
 class Rigidbody:
     bounce: float
     
@@ -113,6 +116,12 @@ class Health:
     def __isub__(self, n):
         self.value -= n
         return self
+
+
+@component
+@dataclass
+class Drop:
+    block: str
 
 
 # class components (classes with logical initialization)
@@ -218,10 +227,13 @@ class RenderSystem:
                 sprite.anim = 0
             finally:
                 # calc. position of rendering
-                blit_pos = (tr.pos[0] - scroll[0], tr.pos[1] - scroll[1])
+                blit_pos = [tr.pos[0] - scroll[0], tr.pos[1] - scroll[1]]
                 # rotate sprite
                 sprite.rot += sprite.avel
                 img = (sprite.images if tr.vel[0] > 0 else sprite.fimages)[int(sprite.anim)]
+                # add sine to the sprite if necessary
+                if any(tr.sine):
+                    blit_pos[1] += sin(ticks() * 2 * pi / 1000 * tr.sine[0] + tr.sine_offset) * tr.sine[1]
                 # render sprite
                 self.display.blit(img, blit_pos)
             
@@ -262,8 +274,8 @@ class DebugSystem:
 class CollisionSystem:
     def __init__(self):
         self.set_cache(True)
-        self.operates(CollisionFlag, Transform, Sprite)
-        self.operates(CollisionFlag, Transform, Sprite, Health)
+        self.operates(CollisionFlag, Transform, Sprite)  # regular collisions and senders
+        self.operates(CollisionFlag, Transform, Sprite, Health)  # collisions of receivers
     
     def process(self, player, chunks):
         """
@@ -271,8 +283,11 @@ class CollisionSystem:
         since I already use a chunk system which is efficient enough
         """
         # check the damage inflicters
-        for s_ent, s_chunk, (s_col_flag, s_tr, s_sprite) in self.get_components(0, chunks=chunks):
-            s_rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
+        for ent, chunk, (col_flag, tr, sprite) in self.get_components(0, chunks=chunks):
+            s_ent, s_chunk, s_col_flag, s_tr, s_sprite = ent, chunk, col_flag, tr, sprite
+            rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
+            s_rect = rect
+            #
             if s_tr.active and s_col_flag & CollisionFlags.SEND:
                 # check for damage receivers
                 for r_ent, r_chunk, (r_col_flag, r_tr, r_sprite, r_health) in self.get_components(1, chunks=chunks):
@@ -286,11 +301,21 @@ class CollisionSystem:
                                 r_sprite.images = r_sprite.fimages = [pygame.Surface((30, 30))]
                             # make the bullet inactive
                             s_col_flag.set(CollisionFlags.INACTIVE)
-                
-            # check for whether the entity is a dropped item that has to be picked up
-            if s_col_flag & CollisionFlags.DROP:
-                if s_rect.colliderect(player.rect):
-                    test("asd")
+
+
+@system
+class DropSystem:
+    def __init__(self, display):
+        self.display = display
+        self.set_cache(True)
+        self.operates(Drop, Transform, Sprite)
+    
+    def process(self, player, scroll, chunks):
+        for ent, chunk, (drop, tr, sprite) in self.get_components(0, chunks=chunks):
+            rect = pygame.Rect(tr.pos, sprite.rect.size)
+            if rect.colliderect(player.rect):
+                player.inventory.add(drop.block, 1)
+                self.delete(0, ent, chunk)
 
 
 @system

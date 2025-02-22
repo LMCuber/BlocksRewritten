@@ -8,6 +8,7 @@ from pyengine.ecs import *
 from .engine import *
 from .window import *
 from .entities import *
+from .blocks import BlockFlags
 from . import fonts
 from . import blocks
 
@@ -243,7 +244,7 @@ class World:
         # initialize empty chunk data
         chunk_x, chunk_y = chunk_index
         self.data[chunk_index] = {}
-        self.chunk_biomes[chunk_index] = Biome.BEACH
+        self.chunk_biomes[chunk_index] = Biome.FOREST
         self.chunk_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
         self.chunk_colors[chunk_index] = [rand(0, 255) for _ in range(3)]
         biome = self.chunk_biomes[chunk_index]
@@ -346,12 +347,19 @@ class World:
         return num_blocks, processed_chunks, block_rects
 
     def drop(self):
+        # coordinates for the drop
         x = self.breaking.pos[0] * BS + BS / 2
         y = self.breaking.pos[1] * BS + BS / 2
-        drop_img = pygame.transform.scale_by(blocks.images[self.data[self.breaking.index][self.breaking.pos]], 0.5)
+        # block image
+        base, _ = self.bpure(self.data[self.breaking.index][self.breaking.pos])
+        # modify the dropped image so it distinguished itself form its environment
+        drop_img = pygame.transform.scale_by(blocks.images[base], 0.5)
+        if not (blocks.data[base] & BlockFlags.NONSQUARE):
+            pygame.draw.rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)
+        #
         create_entity(
-            Transform([x - BS / 4, y - BS / 4], [0, 0]),
+            Transform([x - BS / 4 + rand(-5, 5), y - BS / 4 + rand(-5, 5)], [0, 0], gravity=0.03, sine=(0.35, 4)),
             Sprite.from_img(drop_img),
-            CollisionFlag(CollisionFlags.DROP),
+            Drop(base),
             chunk=0
         )

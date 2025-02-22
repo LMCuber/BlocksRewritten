@@ -49,6 +49,14 @@ class Game:
         self.debug_system = DebugSystem(window.display)
         self.collision_system = CollisionSystem()
         self.display_health_system = DisplayHealthSystem(window.display)
+        self.drop_system = DropSystem(window.display)
+    
+    def process_systems(self, processed_chunks):
+        self.render_system.process(self.scroll, self.world, menu.hitboxes, chunks=processed_chunks)
+        self.player_follower_system.process(self.player, chunks=processed_chunks)
+        self.collision_system.process(self.player, chunks=processed_chunks)
+        self.display_health_system.process(self.scroll, chunks=processed_chunks)
+        self.drop_system.process(self.player, self.scroll, chunks=processed_chunks)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -134,10 +142,7 @@ class Game:
                 self.player.update(window.display, block_rects, dt)
 
                 # process the ECS systems   
-                self.render_system.process(self.scroll, self.world, menu.hitboxes, chunks=processed_chunks)
-                self.player_follower_system.process(self.player, chunks=processed_chunks)
-                self.collision_system.process(self.player, chunks=processed_chunks)
-                self.display_health_system.process(self.scroll, chunks=processed_chunks)
+                self.process_systems(processed_chunks)
 
             # update the pyengine.pgwidgets
             pgw.draw_and_update_widgets()
@@ -147,7 +152,7 @@ class Game:
             if window.vsync:
                 write(window.display, "topleft", "vsync", fonts.orbitron[10], BLACK, 5, 24)
             write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], BLACK, 5, 40)
-            write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], BLACK, 5, 60)
+            # write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], BLACK, 5, 60)
             write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 80)
             write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 100)
 

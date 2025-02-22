@@ -5,6 +5,7 @@ from pyengine.ecs import *
 from .engine import *
 from .entities import *
 from .window import window
+from .blocks import BlockFlags, inventory_img
 
 
 class Direction(Enum):
@@ -35,6 +36,40 @@ class Action(Enum):
     NONE = auto()
 
 
+class Inventory:
+    def __init__(self):
+        self.keys: list[str] = []
+        self.values: list[int] = []
+    
+    def add(self, item, amount=1):
+        if item in self.keys:
+            # already in inventory
+            self.values[self.keys.index(item)] += 1
+        else:
+            # doesnt exist, so add new
+            self.keys.append(item)
+            self.values.append(amount)
+    
+    def update(self, display):
+        # inventory image
+        mouse = pygame.mouse.get_pos()
+        topleft = (300, 10)
+        display.blit(inventory_img, topleft)
+        x, y = topleft[0] + S * 2, topleft[1] + S * 2
+        rects = []
+        # blocks in the inventory
+        for i, (block, amount) in enumerate(zip(self.keys, self.values)):
+            # render the block
+            blit_pos = (x + i * (BS + S * 4), y)
+            display.blit(blocks.images[block], blit_pos)
+            rects.append(pygame.Rect(*blit_pos, BS + S * 2, BS + S * 2))
+            # write the block amount
+            write(display, "center", amount, fonts.orbitron[13], WHITE, blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
+            # write the tooltip
+            if rects[-1].collidepoint(mouse):
+                write(display, "topleft", block, fonts.orbitron[15], WHITE, mouse[0] + 20, mouse[1] + 20)
+
+
 class Player:
     def __init__(self, game, world, menu):
         # pointers to lobal game objects
@@ -58,6 +93,7 @@ class Player:
         self.pressing_jump = False
         # actions with blocks
         self.action = Action.NONE
+        self.inventory = Inventory()
     
     def draw(self, display):
         # get the current animation image
@@ -114,13 +150,15 @@ class Player:
             self.world.breaking.index = None
             self.world.breaking.pos = None
     
-    def interact(self, block_rects):
+    def interact(self, display, block_rects):
         if self.game.substate == Substates.PLAY:
             # get mouse data
             mouse = pygame.mouse.get_pos()
             mouses = pygame.mouse.get_pressed()
             if mouses[0] or mouses[2]:
+                # check where the mouse wants to place a block and whether it's prohibited
                 chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
+                # place or break block
                 if mouses[0]:
                     if self.action == Action.BREAK:
                         # for xo, yo in product(range(-1, 2), repeat=2):
@@ -199,6 +237,7 @@ class Player:
     
     def update(self, display, block_rects, dt):
         self.move(dt)
-        self.interact(block_rects)
+        self.interact(display, block_rects)
         self.draw(display)
+        self.inventory.update(display)
         
