@@ -1,0 +1,21 @@
+nutcracker:
+  run:
+    frames: 8
+    offset: -6
+  idle:
+    frames: 4
+    offset: -4
+
+samurai:
+  run:
+    frames: 8
+    offset: -6
+  idle:
+    frames: 1
+    offset: -4
+
+_default:
+  _default_run:
+    frames: 8
+  _default_idle:
+    frames: 4

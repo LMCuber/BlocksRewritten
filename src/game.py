@@ -45,16 +45,24 @@ class Game:
     
     def init_systems(self):
         self.render_system = RenderSystem(window.display)
+        self.physics_system = PhysicsSystem()
+        self.animation_system = AnimationSystem()
+
         self.player_follower_system = PlayerFollowerSystem(window.display)
         self.debug_system = DebugSystem(window.display)
         self.collision_system = CollisionSystem()
+        self.damage_text_system = DamageTextSystem(window.display)
         self.display_health_system = DisplayHealthSystem(window.display)
         self.drop_system = DropSystem(window.display)
     
     def process_systems(self, processed_chunks):
-        self.render_system.process(self.scroll, self.world, menu.hitboxes, chunks=processed_chunks)
+        self.physics_system.process(self.world, menu.hitboxes, chunks=processed_chunks)
+        self.animation_system.process(chunks=processed_chunks)
+        self.render_system.process(self.scroll, chunks=processed_chunks)
+
         self.player_follower_system.process(self.player, chunks=processed_chunks)
         self.collision_system.process(self.player, chunks=processed_chunks)
+        self.damage_text_system.process(self.scroll, chunks=processed_chunks)
         self.display_health_system.process(self.scroll, chunks=processed_chunks)
         self.drop_system.process(self.player, self.scroll, chunks=processed_chunks)
     
@@ -68,6 +76,8 @@ class Game:
         self.shader.send("time", ticks())
         # self.shader.send("centerWin", window.center)
         self.shader.send("res", (window.width, window.height))
+        self.shader.send("blurSigma", menu.blur.value)
+        self.shader.send("palettize", menu.palettize.checked)
 
         w = 120
         # self.shader.send("deadZone", (pygame.mouse.get_pos()[0] - w, pygame.mouse.get_pos()[1] - w, w * 2, w * 2))
@@ -96,7 +106,6 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            window.target_fps = menu.target_fps.value
             dt = self.clock.tick(165) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
@@ -111,11 +120,11 @@ class Game:
                         if self.state == States.PLAY:
                             if self.substate == Substates.PLAY:
                                 self.substate = Substates.MENU
-                                for widget in menu.widgets:
+                                for widget in menu.iter_widgets():
                                     widget.enable()
                             elif self.substate == Substates.MENU:
                                 self.substate = Substates.PLAY
-                                for widget in menu.widgets:
+                                for widget in menu.iter_widgets():
                                     widget.disable()
                     
                     elif event.key == pygame.K_q:

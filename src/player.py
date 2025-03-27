@@ -1,4 +1,5 @@
 import pygame
+import yaml
 #
 from pyengine.ecs import *
 #
@@ -8,27 +9,16 @@ from .window import window
 from .blocks import BlockFlags, inventory_img
 
 
+
+def cyclic(l):
+    return {l[i]: l[(i + 1) % len(l)] for i in range(len(l))} 
+
+
 class Direction(Enum):
     NONE = auto()
     LEFT = auto()
     RIGHT = auto()
 
-
-class AnimData:
-    with open(Path("res", "data", "player_animations.json")) as f:
-        data = json.load(f)
-    images = {}
-    for skin in data:
-        images[skin] = {}
-        for mode in data[skin]:
-            images[skin][mode] = imgload("res", "images", "player_animations", skin, f"{mode}.png", scale=S, frames=data[skin][mode]["frames"])
-
-    @classmethod
-    def get(cls, skin, attr):
-        if skin == "_default":
-            attr = "_default_" + attr
-        return cls.images[skin][attr]
-    
 
 class Action(Enum):
     PLACE = auto()
@@ -79,7 +69,7 @@ class Player:
         # animation parameters
         self.anim_index = 0  # index of spritesheet
         self.anim_vel = 0.08  # animation speed
-        self.anim_skin = "_default"
+        self.anim_skin = "nutcracker"
         self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
@@ -97,7 +87,7 @@ class Player:
     
     def draw(self, display):
         # get the current animation image
-        self.images = AnimData.get(self.anim_skin, self.anim_mode)
+        self.images, offset = AnimData.get(self.anim_skin, self.anim_mode)
         self.anim_index += self.anim_vel
         try:
             image = self.images[int(self.anim_index)]
@@ -110,13 +100,14 @@ class Player:
             image = pygame.transform.flip(image, True, False)
         # render the player
         self.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
-        image_rect = image.get_rect(center=self.scrolled_rect.center)
+        image_rect = image.get_rect(center=self.scrolled_rect.center).move(0, offset)
         display.blit(image, image_rect)
         
         # show the hitboxes
         if self.menu.hitboxes.checked:
-            pygame.draw.rect(window.display, LIGHT_GREEN, self.scrolled_rect, 1)
-            pygame.draw.rect(window.display, ORANGE, image_rect, 1)
+            # scrolled_rect = hitbox (ORANGE), image_rect = actual blit position (LIGHT_GREEN)
+            pygame.draw.rect(window.display, ORANGE, self.scrolled_rect, 1)
+            pygame.draw.rect(window.display, LIGHT_GREEN, image_rect, 1)
     
     def process_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -124,7 +115,7 @@ class Player:
                 if self.action == Action.NONE:
                     self.action = Action.BREAK
 
-                """
+                return
                 # shoow a bullet entity
                 m = pygame.mouse.get_pos()
                 dy = m[1] - window.height / 2
@@ -137,10 +128,10 @@ class Player:
                     create_entity(
                         CollisionFlag(CollisionFlags.SEND),
                         Transform([self.rect.centerx, self.rect.centery], [xvel, yvel], TransformFlag(TransformFlags.PROJECTILE), 0.03),
-                        Sprite(Path("res", "images", "bullet.png"), 1, 0.1),
+                        Sprite.from_path(Path("res", "images", "bullet.png"), 1, 0.1),
                         chunk=0
                     )
-                """
+
             elif event.button == 3:
                 if self.action == Action.NONE:
                     self.action = Action.PLACE
@@ -149,6 +140,10 @@ class Player:
             self.action = Action.NONE
             self.world.breaking.index = None
             self.world.breaking.pos = None
+        
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                self.anim_skin = cyclic(["_default", "samurai", "nutcracker"])[self.anim_skin]
     
     def interact(self, display, block_rects):
         if self.game.substate == Substates.PLAY:
@@ -197,6 +192,7 @@ class Player:
             self.direc = Direction.RIGHT
         if not (keys[pygame.K_a] or keys[pygame.K_d]):
             self.anim_mode = "idle"
+            self.anim_index = 0
         else:
             self.anim_mode = "run"
         

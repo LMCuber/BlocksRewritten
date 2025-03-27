@@ -194,6 +194,15 @@ class World:
                 if name == bio.blocks[biome][0] and _get((block_x, block_y - 1)) == "air":
                     # forest modifications
                     if biome == Biome.FOREST:
+                        #
+                        if _chance(1 / 50):
+                            create_entity(
+                                Transform([0, 0], [0, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
+                                Hitbox(0, 0, 52, 70),
+                                Sprite.from_path(Path("res", "images", "player_animations", "nutcracker", "run.png"), 8, 0.02),
+                                chunk=chunk_index
+                            )
+                            print(chunk_index)
                         # forest tree
                         if _chance(1 / 24):
                             # tree_height = _rand(10, 14)
