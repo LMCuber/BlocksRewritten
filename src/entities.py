@@ -166,7 +166,7 @@ class Sprite:
         return self
 
     @classmethod
-    def from_path(cls, path):
+    def from_path(cls, path, pos, anchor="midbottom"):
         self = cls()
         self.anim = 0
         self.anim_skin = path.parts[-2]  # "nutcracker"
@@ -175,6 +175,10 @@ class Sprite:
         self.images = []
         self.offset = (0, 0)
         self.anim_speed = 0.2
+        self.anchor = anchor
+        # hitbox fetch data and hitbox itself
+        self.pos = pos
+        self.hitbox_size = None
         self.hitbox = None
         return self
 
@@ -201,18 +205,24 @@ class DamageText:
 class PhysicsSystem:
     def __init__(self):
         self.set_cache(True)
-        self.operates(Transform, Hitbox, Sprite)
+        self.operates(Transform, Sprite)
     
     def process(self, world, hitboxes: bool, chunks):
-        for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
+        for ent, chunk, (tr, sprite) in self.get_components(0, chunks=chunks):
+            # initialize hitbox if it doesn't exist yet
+            if sprite.hitbox is None:
+                sprite.hitbox = pygame.Rect(0, 0, *sprite.hitbox_size)
+                setattr(sprite.hitbox, sprite.anchor, sprite.pos)
+
+            # hitbox reference
+            hitbox = sprite.hitbox
+
             # physics
             x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
             range_x = (-x_disp, x_disp + 1)
             y_disp = ceil(abs(tr.vel[1] / BS)) + ceil(hitbox.height / 2 / BS)
             range_y = (-y_disp, y_disp + 3)
 
-            # resize the rectangle to fit the animation frame hitbox
-            hitbox.size = sprite.hitbox
             for rect in world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y):
                 if hitbox.colliderect(rect):
                     if tr.vel[1] > 0:
@@ -253,7 +263,7 @@ class AnimationSystem:
     def process(self, chunks):
         for ent, chunk, (sprite,) in self.get_components(0, chunks=chunks):
             # get the spritesheet images, offset and speed
-            sprite.images, sprite.offset, sprite.anim_speed, sprite.hitbox = AnimData.get(sprite.anim_skin, sprite.anim_mode)
+            sprite.images, sprite.offset, sprite.anim_speed, sprite.hitbox_size = AnimData.get(sprite.anim_skin, sprite.anim_mode)
             # increase the animation frame
             sprite.anim += sprite.anim_speed
             try:
@@ -267,10 +277,12 @@ class RenderSystem:
     def __init__(self, display):
         self.display = display
         self.set_cache(True)
-        self.operates(Hitbox, Sprite, Transform)
+        self.operates(Sprite, Transform)
     
     def process(self, scroll, chunks):
-        for ent, chunk, (hitbox, sprite, tr) in self.get_components(0, chunks=chunks):
+        for ent, chunk, (sprite, tr) in self.get_components(0, chunks=chunks):
+            # hitbox def
+            hitbox = sprite.hitbox
             # get which image
             image = sprite.images[int(sprite.anim)]
             # flip the image if player is moving to the left instead of to the right

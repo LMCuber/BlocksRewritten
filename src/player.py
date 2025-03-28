@@ -73,6 +73,8 @@ class Player:
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
         self.rect = pygame.FRect((0, -100, 52, 70))
+        # ECS?!
+        # self.sprite = Sprite.from_path(Path("res", "images", "player_animations", self.anim_skin, f"{self.anim_mode}.png")),
         # physics
         self.yvel = 0
         self.xvel = 0
@@ -84,6 +86,12 @@ class Player:
         self.action = Action.NONE
         self.inventory = Inventory()
     
+    def update(self, display, block_rects, dt):
+        self.move(dt)
+        self.interact(display, block_rects)
+        self.draw(display)
+        self.inventory.update(display)
+
     def draw(self, display):
         # get the current animation image
         self.images, offset, anim_vel, _ = AnimData.get(self.anim_skin, self.anim_mode)
@@ -229,10 +237,3 @@ class Player:
         self.yvel = -6
         self.jumps_left -= 1
         self.pressing_jump = True
-    
-    def update(self, display, block_rects, dt):
-        self.move(dt)
-        self.interact(display, block_rects)
-        self.draw(display)
-        self.inventory.update(display)
-        

@@ -147,11 +147,11 @@ class Game:
                 num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll)
                 processed_chunks.append(0)  # the "global" chunk, so entities that update always
 
+                # process the ECS systems
+                self.process_systems(processed_chunks)
+
                 # update the player
                 self.player.update(window.display, block_rects, dt)
-
-                # process the ECS systems   
-                self.process_systems(processed_chunks)
 
             # update the pyengine.pgwidgets
             pgw.draw_and_update_widgets()

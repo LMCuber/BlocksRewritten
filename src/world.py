@@ -198,8 +198,7 @@ class World:
                         if chunk_index == (0, 0) and _chance(1 / 14):
                             create_entity(
                                 Transform([0, 0], [0, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
-                                Hitbox((block_pos[0] * BS, block_pos[1] * BS, 52, 70), anchor="midbottom"),
-                                Sprite.from_path(Path("res", "images", "player_animations", "nutcracker", "run.png")),
+                                Sprite.from_path(Path("res", "images", "player_animations", "nutcracker", "run.png"), (block_pos[0] * BS, block_pos[1] * BS)),
                                 chunk=chunk_index
                             )
                             print(chunk_index, window.size)
