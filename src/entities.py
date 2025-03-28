@@ -15,31 +15,26 @@ from .engine import *
 del Window, Renderer, Texture, Image
 
 
-
-nut_img = pygame.Surface((10, 10)); nut_img.fill(BROWN)
-
-
-
 # anim data masterclass (hehe)
 class AnimData:
     with open(Path("res", "data", "player_animations.yaml")) as f:
-        # data = json.load(f)
-        data = yaml.safe_load(f);
+        yaml_data = yaml.safe_load(f);
 
-    offsets = {}
-    images = {}
-    for skin in data:
-        images[skin] = {}
-        offsets[skin] = {}
-        for mode in data[skin]:
-            images[skin][mode] = imgload("res", "images", "player_animations", skin, f"{mode}.png", scale=S, frames=data[skin][mode]["frames"])
-            offsets[skin][mode] = data[skin][mode].get("offset", 0)
+    data = {}
+    for skin in yaml_data:
+        data[skin] = {}
+        for mode in yaml_data[skin]:
+            data[skin][mode] = {}
+            data[skin][mode]["images"] = imgload("res", "images", "player_animations", skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
+            data[skin][mode]["offset"] = yaml_data[skin][mode].get("offset", 0)
+            data[skin][mode]["speed"] = yaml_data[skin][mode].get("speed", 0.08)
+            data[skin][mode]["hitbox"] = yaml_data[skin][mode].get("hitbox", (1, 1))
 
     @classmethod
-    def get(cls, skin, attr):
+    def get(cls, skin, mode):
         if skin == "_default":
-            attr = "_default_" + attr
-        return (cls.images[skin][attr], cls.offsets[skin][attr])
+            mode = "_default_" + mode
+        return [cls.data[skin][mode][attr] for attr in ["images", "offset", "speed", "hitbox"]]
     
 
 # COMPONENTS -----------------------------------------------------
@@ -154,6 +149,10 @@ class Drop:
 # class components (classes with logical initialization)
 @component
 class Sprite:
+    """
+    If a sprite gets passed a single image, then it needs no offsetting per animation frame, since it is a still image.
+    But animation sprites need to dynamically poll [images and offsets] from AnimData.get() 
+    """
     @classmethod
     def from_img(cls, img):
         self = cls()
@@ -167,23 +166,28 @@ class Sprite:
         return self
 
     @classmethod
-    def from_path(cls, path, num_frames, anim_speed):
+    def from_path(cls, path):
         self = cls()
-        self.images = imgload(path, scale=S, frames=num_frames)
-        if not isinstance(self.images, list):
-            self.images = [self.images]
-        self.fimages = [pygame.transform.flip(image, True, False) for image in self.images]
         self.anim = 0
-        self.anim_speed = anim_speed
+        self.anim_skin = path.parts[-2]  # "nutcracker"
+        self.anim_mode = path.stem  # "run"
+        # -- BELOW UPDATED EVERY FRAME --
+        self.images = []
+        self.offset = (0, 0)
+        self.anim_speed = 0.2
+        self.hitbox = None
         return self
 
 
 @component
-class Hitbox(pygame.Rect): pass
+class Hitbox(pygame.Rect):
+    def __init__(self, *args, anchor=None):
+        super().__init__(*args)
+        if anchor is not None:
+            setattr(self, anchor, self.topleft)
 
 
 @component
-@dataclass
 class DamageText:
     def __init__(self, damage: float,  max_y: int, size: int = 20, color: tuple = BLACK):
         self.max_y = max_y
@@ -197,18 +201,20 @@ class DamageText:
 class PhysicsSystem:
     def __init__(self):
         self.set_cache(True)
-        self.operates(Transform, Hitbox)
+        self.operates(Transform, Hitbox, Sprite)
     
     def process(self, world, hitboxes: bool, chunks):
-        for ent, chunk, (tr, hitbox) in self.get_components(0, chunks=chunks):
+        for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
             # physics
             x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
             range_x = (-x_disp, x_disp + 1)
             y_disp = ceil(abs(tr.vel[1] / BS)) + ceil(hitbox.height / 2 / BS)
             range_y = (-y_disp, y_disp + 3)
-            
+
+            # resize the rectangle to fit the animation frame hitbox
+            hitbox.size = sprite.hitbox
             for rect in world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y):
-                if hitbox.rect.colliderect(rect):
+                if hitbox.colliderect(rect):
                     if tr.vel[1] > 0:
                         hitbox.bottom = rect.top
                     else:
@@ -219,7 +225,7 @@ class PhysicsSystem:
                     tr.vel[1] = 0
             
             for rect in world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y):
-                if hitbox.rect.colliderect(rect):
+                if hitbox.colliderect(rect):
                     if tr.vel[0] > 0:
                         hitbox.right = rect.left
                     else:
@@ -246,6 +252,9 @@ class AnimationSystem:
     
     def process(self, chunks):
         for ent, chunk, (sprite,) in self.get_components(0, chunks=chunks):
+            # get the spritesheet images, offset and speed
+            sprite.images, sprite.offset, sprite.anim_speed, sprite.hitbox = AnimData.get(sprite.anim_skin, sprite.anim_mode)
+            # increase the animation frame
             sprite.anim += sprite.anim_speed
             try:
                 sprite.images[int(sprite.anim)]
@@ -262,14 +271,19 @@ class RenderSystem:
     
     def process(self, scroll, chunks):
         for ent, chunk, (hitbox, sprite, tr) in self.get_components(0, chunks=chunks):
-            images, offset = sprite.images, 0
-            image = images[int(sprite.anim)]
+            # get which image
+            image = sprite.images[int(sprite.anim)]
             # flip the image if player is moving to the left instead of to the right
             if tr.vel[0] < 0:
                 image = pygame.transform.flip(image, True, False)
             # render the player
             scrolled_hitbox = hitbox.move(-scroll[0], -scroll[1])
-            blit_rect = image.get_rect(center=scrolled_hitbox.center).move(0, offset)
+            blit_rect = image.get_rect(center=scrolled_hitbox.center).move(0, sprite.offset)
+
+            # debugging
+            pygame.draw.rect(self.display, GREEN, blit_rect, 1)
+            pygame.draw.rect(self.display, ORANGE, scrolled_hitbox, 1)
+
             self.display.blit(image, blit_rect)
 
 

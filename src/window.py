@@ -16,6 +16,7 @@ class Window:
         pygame.display.gl_set_attribute(pygame.GL_SWAP_CONTROL, vsync)
         self.width = width
         self.height = height
+        self.size = (self.width, self.height)
         self.vsync = vsync
         self.target_fps = target_fps
         self.center = (self.width / 2, self.height / 2)

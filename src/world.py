@@ -195,14 +195,14 @@ class World:
                     # forest modifications
                     if biome == Biome.FOREST:
                         #
-                        if _chance(1 / 50):
+                        if chunk_index == (0, 0) and _chance(1 / 14):
                             create_entity(
                                 Transform([0, 0], [0, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
-                                Hitbox(0, 0, 52, 70),
-                                Sprite.from_path(Path("res", "images", "player_animations", "nutcracker", "run.png"), 8, 0.02),
+                                Hitbox((block_pos[0] * BS, block_pos[1] * BS, 52, 70), anchor="midbottom"),
+                                Sprite.from_path(Path("res", "images", "player_animations", "nutcracker", "run.png")),
                                 chunk=chunk_index
                             )
-                            print(chunk_index)
+                            print(chunk_index, window.size)
                         # forest tree
                         if _chance(1 / 24):
                             # tree_height = _rand(10, 14)

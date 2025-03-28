@@ -23,7 +23,7 @@ widgets = {
         pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs)
     ]),
     "sliders": SmartList([
-        pgw.Slider(window.display, "Blurring", [round(i * 0.1, 1) for i in range(301)], 0, pos=(300, 348), **kwargs | slider_kwargs),
+        pgw.Slider(window.display, "Blurring", [round(i * 0.1, 1) for i in range(101)], 0, pos=(300, 348), **kwargs | slider_kwargs),
     ]),
     "buttons": SmartList([
         pgw.Button(window.display, "Quit", lambda: None, pos=(300, 396), **kwargs | button_kwargs),

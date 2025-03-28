@@ -56,8 +56,8 @@ class Game:
         self.drop_system = DropSystem(window.display)
     
     def process_systems(self, processed_chunks):
-        self.physics_system.process(self.world, menu.hitboxes, chunks=processed_chunks)
         self.animation_system.process(chunks=processed_chunks)
+        self.physics_system.process(self.world, menu.hitboxes, chunks=processed_chunks)
         self.render_system.process(self.scroll, chunks=processed_chunks)
 
         self.player_follower_system.process(self.player, chunks=processed_chunks)

@@ -68,7 +68,6 @@ class Player:
         self.menu = menu
         # animation parameters
         self.anim_index = 0  # index of spritesheet
-        self.anim_vel = 0.08  # animation speed
         self.anim_skin = "nutcracker"
         self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
@@ -87,8 +86,8 @@ class Player:
     
     def draw(self, display):
         # get the current animation image
-        self.images, offset = AnimData.get(self.anim_skin, self.anim_mode)
-        self.anim_index += self.anim_vel
+        self.images, offset, anim_vel, _ = AnimData.get(self.anim_skin, self.anim_mode)
+        self.anim_index += anim_vel
         try:
             image = self.images[int(self.anim_index)]
         except IndexError:
