@@ -166,7 +166,7 @@ class Sprite:
         return self
 
     @classmethod
-    def from_path(cls, path, pos, anchor="midbottom"):
+    def from_path(cls, path):
         self = cls()
         self.anim = 0
         self.anim_skin = path.parts[-2]  # "nutcracker"
@@ -175,11 +175,6 @@ class Sprite:
         self.images = []
         self.offset = (0, 0)
         self.anim_speed = 0.2
-        self.anchor = anchor
-        # hitbox fetch data and hitbox itself
-        self.pos = pos
-        self.hitbox_size = None
-        self.hitbox = None
         return self
 
 
@@ -187,6 +182,7 @@ class Sprite:
 class Hitbox(pygame.Rect):
     def __init__(self, *args, anchor=None):
         super().__init__(*args)
+        self.anchor = anchor
         if anchor is not None:
             setattr(self, anchor, self.topleft)
 
@@ -205,17 +201,14 @@ class DamageText:
 class PhysicsSystem:
     def __init__(self):
         self.set_cache(True)
-        self.operates(Transform, Sprite)
+        self.operates(Transform, Hitbox, Sprite)
     
     def process(self, world, hitboxes: bool, chunks):
-        for ent, chunk, (tr, sprite) in self.get_components(0, chunks=chunks):
-            # initialize hitbox if it doesn't exist yet
-            if sprite.hitbox is None:
-                sprite.hitbox = pygame.Rect(0, 0, *sprite.hitbox_size)
-                setattr(sprite.hitbox, sprite.anchor, sprite.pos)
-
-            # hitbox reference
-            hitbox = sprite.hitbox
+        for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
+            # check if hitbox needs to be initialized by a Sprite
+            if hitbox.size == (0, 0):
+                hitbox.size = sprite.hitbox_size
+                setattr(hitbox, hitbox.anchor, hitbox.topleft)
 
             # physics
             x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
@@ -277,12 +270,10 @@ class RenderSystem:
     def __init__(self, display):
         self.display = display
         self.set_cache(True)
-        self.operates(Sprite, Transform)
+        self.operates(Sprite, Hitbox, Transform)
     
     def process(self, scroll, chunks):
-        for ent, chunk, (sprite, tr) in self.get_components(0, chunks=chunks):
-            # hitbox def
-            hitbox = sprite.hitbox
+        for ent, chunk, (sprite, hitbox, tr) in self.get_components(0, chunks=chunks):
             # get which image
             image = sprite.images[int(sprite.anim)]
             # flip the image if player is moving to the left instead of to the right
