@@ -19,7 +19,7 @@ slider_kwargs = {"height": 64}
 widgets = {
     "checkboxes": SmartList([
         pgw.Checkbox(window.display, "Hitboxes", **kwargs),
-        pgw.Checkbox(window.display, "Chunk Borders", **kwargs),
+        pgw.Checkbox(window.display, "Chunk Borders", checked=True, **kwargs),
         pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs)
     ]),
     "sliders": SmartList([

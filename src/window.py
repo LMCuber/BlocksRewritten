@@ -25,6 +25,6 @@ class Window:
 
 
 window = Window()
-with open(Path("src", "settings.toml"), "rb") as f:
+with open(Path("settings.toml"), "rb") as f:
     toml_data = toml.load(f)
     window.create_window(**toml_data["window"])

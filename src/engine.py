@@ -11,6 +11,8 @@ from math import floor, ceil, log10
 import time
 
 
+CW = 16
+CH = 16
 S = 3
 BS = 10 * S
 

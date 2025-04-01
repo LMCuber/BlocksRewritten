@@ -13,10 +13,6 @@ from . import fonts
 from . import blocks
 
 
-CW = 16
-CH = 16
-
-
 class Biome(Enum):
     FOREST = auto()
     MOUNTAIN = auto()
@@ -75,7 +71,6 @@ class World:
 
         self.create_world()
         self.seed = uuid.uuid4().int
-        # self.seed = 123
         osim.seed(self.seed)
         self.random = random.Random(self.seed)
 
@@ -195,14 +190,14 @@ class World:
                     # forest modifications
                     if biome == Biome.FOREST:
                         #
-                        if chunk_index == (0, 0) and _chance(1 / 14):
+                        if chunk_index == (0, 0) and _chance(1 / 10):
                             create_entity(
-                                Transform([0, 0], [0, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
-                                Hitbox((block_pos[0] * BS, block_pos[1] * BS), (0, 0), anchor="midbottom"),
-                                Sprite.from_path(Path("res", "images", "player_animations", "nutcracker", "run.png")),
+                                Transform([0, 0], [0.6, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
+                                Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (0, 0), anchor="midbottom"),
+                                Sprite.from_path(Path("res", "images", "mobs", "bok-bok", "walk.png")),
+                                PlayerFollower(0),
                                 chunk=chunk_index
                             )
-                            print(chunk_index, window.size)
                         # forest tree
                         if _chance(1 / 24):
                             # tree_height = _rand(10, 14)
@@ -366,9 +361,9 @@ class World:
         if not (blocks.data[base] & BlockFlags.NONSQUARE):
             pygame.draw.rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)
         #
-        create_entity(
-            Transform([x - BS / 4 + rand(-5, 5), y - BS / 4 + rand(-5, 5)], [0, 0], gravity=0.03, sine=(0.35, 4)),
-            Sprite.from_img(drop_img),
-            Drop(base),
-            chunk=0
-        )
+        # create_entity(
+        #     Transform([x - BS / 4 + rand(-5, 5), y - BS / 4 + rand(-5, 5)], [0, 0], gravity=0.03, sine=(0.35, 4)),
+        #     Sprite.from_img(drop_img),
+        #     Drop(base),
+        #     chunk=0
+        # )

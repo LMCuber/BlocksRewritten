@@ -44,10 +44,10 @@ class Game:
         self.running = False
     
     def init_systems(self):
+        self.chunk_repositioning_system = ChunkRepositioningSystem()
         self.render_system = RenderSystem(window.display)
-        self.physics_system = PhysicsSystem()
+        self.physics_system = PhysicsSystem(window.display)
         self.animation_system = AnimationSystem()
-
         self.player_follower_system = PlayerFollowerSystem(window.display)
         self.debug_system = DebugSystem(window.display)
         self.collision_system = CollisionSystem()
@@ -56,10 +56,10 @@ class Game:
         self.drop_system = DropSystem(window.display)
     
     def process_systems(self, processed_chunks):
+        self.chunk_repositioning_system.process(chunks=processed_chunks)
         self.animation_system.process(chunks=processed_chunks)
-        self.physics_system.process(self.world, menu.hitboxes, chunks=processed_chunks)
-        self.render_system.process(self.scroll, chunks=processed_chunks)
-
+        self.physics_system.process(self.world, self.scroll, menu.hitboxes, chunks=processed_chunks)
+        self.render_system.process(self.scroll, menu.hitboxes, chunks=processed_chunks)
         self.player_follower_system.process(self.player, chunks=processed_chunks)
         self.collision_system.process(self.player, chunks=processed_chunks)
         self.damage_text_system.process(self.scroll, chunks=processed_chunks)
