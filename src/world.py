@@ -80,10 +80,10 @@ class World:
     def bpure(self, name):
         return name.split("|") if "|" in name else (name, "")
     
-    def get_blocks_around(self, rect, range_x=(-1, 2), range_y=(-1, 2)):
+    def get_blocks_around(self, rect, range_x=(-1, 1), range_y=(-1, 1)):
         og_chunk_index, og_block_pos = self.pos_to_tile(rect.center)
-        for yo in range(*range_y):
-            for xo in range(*range_x):
+        for yo in range(range_y[0], range_y[1] + 1):
+            for xo in range(range_x[0], range_x[1] + 1):
                 chunk_index, block_pos = self.correct_tile(og_chunk_index, og_block_pos, xo, yo)
                 if chunk_index in self.data and block_pos in self.data[chunk_index]:
                     name = self.data[chunk_index][block_pos]
@@ -178,6 +178,7 @@ class World:
         biome = self.chunk_biomes[chunk_index]
 
         chunk_x, chunk_y = chunk_index
+        _spawned = False
         for rel_y in range(CH):
             for rel_x in range(CW):
                 # init
@@ -190,7 +191,7 @@ class World:
                     # forest modifications
                     if biome == Biome.FOREST:
                         #
-                        if chunk_index == (0, 0) and _chance(1 / 10):
+                        if not _spawned and chunk_index == (0, 0) and _chance(1 / 5):
                             create_entity(
                                 Transform([0, 0], [0.6, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
                                 Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (0, 0), anchor="midbottom"),
@@ -198,8 +199,9 @@ class World:
                                 PlayerFollower(0),
                                 chunk=chunk_index
                             )
+                            _spawned = True
                         # forest tree
-                        if _chance(1 / 24):
+                        if _chance(1 / 24) and False:
                             # tree_height = _rand(10, 14)
                             tree_height = _nordis(9, 2)
                             for tree_yo in range(tree_height):
@@ -262,7 +264,7 @@ class World:
 
                 # chunks 0 and 1 need noise value for dirt and stone
                 if chunk_y in (0, 1):
-                    offset = int(octave_noise(block_x, 0, 0.04) * CW)
+                    offset = int(octave_noise(block_x, 0, 0.04 * 0.01) * CW)
 
                 if chunk_y < 0:
                     name = "air"

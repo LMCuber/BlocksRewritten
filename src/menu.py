@@ -11,19 +11,20 @@ def iter_widgets():
 
 pgw.set_hw_accel(False)
 
-kwargs = {"anchor": "center", "template": "menu widget", "font": fonts.orbitron[15], "bg_color": (40, 40, 40, 210), "text_color": WHITE, "width": 160, "height": 32}
+kwargs = {"anchor": "center", "template": "menu widget", "font": fonts.orbitron[15], "bg_color": (40, 40, 40, 210), "text_color": WHITE, "width": 168, "height": 32}
 button_kwargs = {}
-slider_kwargs = {"height": 64}
+slider_kwargs = {"height": 66}
 
 # the widget objects
 widgets = {
     "checkboxes": SmartList([
-        pgw.Checkbox(window.display, "Hitboxes", **kwargs),
-        pgw.Checkbox(window.display, "Chunk Borders", checked=True, **kwargs),
+        pgw.Checkbox(window.display, "Hitboxes", checked=True, **kwargs),
+        pgw.Checkbox(window.display, "Chunk Borders", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs)
     ]),
     "sliders": SmartList([
-        pgw.Slider(window.display, "Blurring", [round(i * 0.1, 1) for i in range(101)], 0, pos=(300, 348), **kwargs | slider_kwargs),
+        pgw.Slider(window.display, "Blurring", [round(i * 0.1, 1) for i in range(101)], 0, **kwargs | slider_kwargs),
+        pgw.Slider(window.display, "FPS Cap", [10, 30, 60, 144, 165, 250], 4, **kwargs | slider_kwargs),
     ]),
     "buttons": SmartList([
         pgw.Button(window.display, "Quit", lambda: None, pos=(300, 396), **kwargs | button_kwargs),
@@ -33,9 +34,10 @@ widgets = {
 # binding variables to the widgets
 hitboxes = widgets["checkboxes"].find(lambda x: x.text == "Hitboxes")
 chunk_borders = widgets["checkboxes"].find(lambda x: x.text == "Chunk Borders")
-palettize= widgets["checkboxes"].find(lambda x: x.text == "Palettize")
+palettize = widgets["checkboxes"].find(lambda x: x.text == "Palettize")
 blur = widgets["sliders"].find(lambda x: x.text == "Blurring")
-quit_button = widgets["buttons"].find(lambda x: x.text == "Quit")
+fps_cap = widgets["sliders"].find(lambda x: x.text == "FPS Cap")
+quit = widgets["buttons"].find(lambda x: x.text == "Quit")
 
 # organizing the widgets into neat grids
 num_types = len(widgets.values())
@@ -44,7 +46,11 @@ if num_types % 2 == 1:
 else:
     render_range = [-x for x in range(num_types // 2, 0, -1)] + [x for x in range(1, num_types // 2 + 1)]
 for xo, widget_type in zip(render_range, widgets):
-    xo *= kwargs["width"] + 10
+    xo *= kwargs["width"] + 4
     for yo, widget in enumerate(widgets[widget_type]):
-        widget.set_pos((window.width / 2 + xo, 170 + yo * (kwargs["height"] + 2)), "midtop")
+        if widget_type == "sliders":
+            margin = (kwargs["height"] + 2) * 2
+        else:
+            margin = kwargs["height"] + 2
+        widget.set_pos((window.width / 2 + xo, 170 + yo * margin), "midtop")
 

@@ -53,10 +53,6 @@ def cceil(n):
         return floor(n)
 
 
-def inflate_keep(rect, xo, yo=0):
-    return rect.inflate(xo, yo).move(xo, yo)
-
-
 def imgload(*path, scale=1, frames=None, convert=False, convert_alpha=True):
     img = pygame.image.load(Path(*path))
     if convert:

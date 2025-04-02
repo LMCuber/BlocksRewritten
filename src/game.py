@@ -37,7 +37,7 @@ class Game:
         #
         self.sword = get_sword((120, 120, 120))
         # menu stuff
-        menu.quit_button.command = self.quit
+        menu.quit.command = self.quit
     
     @staticmethod
     def quit(self):
@@ -106,7 +106,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick(165) / (1 / 144 * 1000)
+            dt = self.clock.tick(menu.fps_cap.value) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
