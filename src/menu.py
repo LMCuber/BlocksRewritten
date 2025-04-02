@@ -48,9 +48,13 @@ else:
 for xo, widget_type in zip(render_range, widgets):
     xo *= kwargs["width"] + 4
     for yo, widget in enumerate(widgets[widget_type]):
+<<<<<<< HEAD
         if widget_type == "sliders":
             margin = (kwargs["height"] + 2) * 2
         else:
             margin = kwargs["height"] + 2
         widget.set_pos((window.width / 2 + xo, 170 + yo * margin), "midtop")
 
+=======
+        widget.set_pos((window.width / 2 + xo, 170 + yo * (kwargs["height"] + 2)), "midtop")
+>>>>>>> 1f15a6ea4bdcce12ef21cca4a9acb7bcd140443f
