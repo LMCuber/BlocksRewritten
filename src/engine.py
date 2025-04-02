@@ -5,12 +5,14 @@ from random import randint as rand
 from random import uniform as randf
 from random import choice
 from math import sin, log as ln
-from enum import Enum, auto
+from enum import Enum, IntFlag, auto
 from dataclasses import dataclass
 from math import floor, ceil, log10
 import time
 
 
+CW = 16
+CH = 16
 S = 3
 BS = 10 * S
 

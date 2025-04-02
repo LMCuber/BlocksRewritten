@@ -8,12 +8,9 @@ from pyengine.ecs import *
 from .engine import *
 from .window import *
 from .entities import *
+from .blocks import BlockFlags
 from . import fonts
 from . import blocks
-
-
-CW = 16
-CH = 16
 
 
 class Biome(Enum):
@@ -51,6 +48,14 @@ def octave_noise(x, y, freq, amp=1, octaves=1, lac=1, pers=1):
     return height
 
 
+
+@dataclass
+class Breaking:
+    index: tuple[int, int] | None = None
+    pos: tuple[int, int] | None = None
+    anim: int = 0
+
+
 class World:
     def __init__(self, menu):
         self.menu = menu
@@ -61,20 +66,31 @@ class World:
         self.chunk_colors = {}
         self.chunk_biomes = {}
 
+        # world data
+        self.breaking = Breaking()
+
         self.create_world()
         self.seed = uuid.uuid4().int
-        # self.seed = 123
         osim.seed(self.seed)
         self.random = random.Random(self.seed)
-        
+
+        # misc
+        self.lates = []
+    
+    def bpure(self, name):
+        return name.split("|") if "|" in name else (name, "")
+    
     def get_blocks_around(self, rect, range_x=(-1, 2), range_y=(-1, 2)):
         og_chunk_index, og_block_pos = self.pos_to_tile(rect.center)
         for yo in range(*range_y):
             for xo in range(*range_x):
                 chunk_index, block_pos = self.correct_tile(og_chunk_index, og_block_pos, xo, yo)
                 if chunk_index in self.data and block_pos in self.data[chunk_index]:
+                    name = self.data[chunk_index][block_pos]
                     block_rect = pygame.Rect(block_pos[0] * BS, block_pos[1] * BS, BS, BS)
-                    yield block_rect
+                    base_name, mods = self.bpure(name)
+                    if "b" not in mods:
+                        yield block_rect
     
     def screen_pos_to_tile(self, pos, scroll):
         x, y = pos
@@ -86,6 +102,12 @@ class World:
         abs_y = floor(y / BS + scroll[1] / BS)
         abs_pos = (abs_x, abs_y)
         return target_chunk, abs_pos
+
+    def tile_to_screen_pos(self, abs_pos, scroll):
+        abs_x, abs_y = abs_pos
+        screen_x = (abs_x - scroll[0]) * BS
+        screen_y = (abs_y - scroll[1]) * BS
+        return screen_x, screen_y
 
     def pos_to_tile(self, pos):
         return ((
@@ -144,7 +166,10 @@ class World:
                 xo = mod_pos[0] - block_pos[0]
                 yo = mod_pos[1] - block_pos[1]
                 new_chunk_index, new_block_pos = self.correct_tile(chunk_index, block_pos, xo, yo)
-                return self.data[new_chunk_index][new_block_pos]
+                try:
+                    return self.data[new_chunk_index][new_block_pos]
+                except KeyError:
+                    return None
 
         _chance = lambda p: self.random.random() < p
         _rand = lambda a, b: self.random.randint(a, b)
@@ -164,6 +189,15 @@ class World:
                 if name == bio.blocks[biome][0] and _get((block_x, block_y - 1)) == "air":
                     # forest modifications
                     if biome == Biome.FOREST:
+                        #
+                        if chunk_index == (0, 0) and _chance(1 / 10):
+                            create_entity(
+                                Transform([0, 0], [0.6, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
+                                Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (0, 0), anchor="midbottom"),
+                                Sprite.from_path(Path("res", "images", "mobs", "bok-bok", "walk.png")),
+                                PlayerFollower(0),
+                                chunk=chunk_index
+                            )
                         # forest tree
                         if _chance(1 / 24):
                             # tree_height = _rand(10, 14)
@@ -190,7 +224,7 @@ class World:
                     elif biome == Biome.BEACH:
                         # rock
                         if _chance(1 / 15):
-                            _set("rock", (block_x, block_y - 1))
+                            _set("rock|b", (block_x, block_y - 1))
                         # beach tree
                         if _chance(1 / 24):
                             # tree stem
@@ -214,7 +248,7 @@ class World:
         # initialize empty chunk data
         chunk_x, chunk_y = chunk_index
         self.data[chunk_index] = {}
-        self.chunk_biomes[chunk_index] = Biome.BEACH
+        self.chunk_biomes[chunk_index] = Biome.FOREST
         self.chunk_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
         self.chunk_colors[chunk_index] = [rand(0, 255) for _ in range(3)]
         biome = self.chunk_biomes[chunk_index]
@@ -253,6 +287,10 @@ class World:
         self.modify_chunk(chunk_index)
     
     def update(self, display, scroll):
+        # lates
+        for pos in self.lates:
+            pygame.draw.aacircle(display, RED, pos, 3)
+        # actual
         num_blocks = 0
         processed_chunks = []
         block_rects = []
@@ -276,13 +314,56 @@ class World:
                 surf = self.chunk_surfaces[chunk_index]
                 for (block_x, block_y), name in self.data[chunk_index].items():
                     blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
-                    display.blit(blocks.images[name], blit_pos)
-                    num_blocks += 1
+                    # block modifications
+                    base_name, mods = self.bpure(name)
+                    if "b" in mods:
+                        image = blocks.images[base_name]
+                    else:
+                        image = blocks.images[base_name]
+                    display.blit(image, blit_pos)
                     # add a block that can be interacted with
                     block_rects.append(pygame.Rect(*blit_pos, BS, BS))
+                    num_blocks += 1
                 #display.blit(surf, chunk_topleft)
-                pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
+                if self.menu.chunk_borders.checked:
+                    pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
                 write(display, "center", chunk_index, fonts.orbitron[20], (0, 0, 0), *chunk_rect.center)
                 #
                 processed_chunks.append(chunk_index)
+        # show the breaking block
+        if (self.breaking.index, self.breaking.pos) != (None, None):
+            breaking_pos = (self.breaking.pos[0] * BS - scroll[0], self.breaking.pos[1] * BS - scroll[1])
+            # check if the breaking actually breaks
+            try:
+                blocks.breaking_sprs[int(self.breaking.anim)]
+            except IndexError:
+                # drop the item
+                self.drop()
+                # break the block
+                del self.data[self.breaking.index][self.breaking.pos]
+                # reset the breaking
+                self.breaking.index = None
+                self.breaking.pos = None
+            else:
+                # render the block breaking spritesheet
+                display.blit(blocks.breaking_sprs[int(self.breaking.anim)], breaking_pos)
+        # return information
         return num_blocks, processed_chunks, block_rects
+
+    def drop(self):
+        # coordinates for the drop
+        x = self.breaking.pos[0] * BS + BS / 2
+        y = self.breaking.pos[1] * BS + BS / 2
+        # block image
+        base, _ = self.bpure(self.data[self.breaking.index][self.breaking.pos])
+        # modify the dropped image so it distinguished itself form its environment
+        drop_img = pygame.transform.scale_by(blocks.images[base], 0.5)
+        if not (blocks.data[base] & BlockFlags.NONSQUARE):
+            pygame.draw.rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)
+        #
+        # create_entity(
+        #     Transform([x - BS / 4 + rand(-5, 5), y - BS / 4 + rand(-5, 5)], [0, 0], gravity=0.03, sine=(0.35, 4)),
+        #     Sprite.from_img(drop_img),
+        #     Drop(base),
+        #     chunk=0
+        # )

@@ -1,8 +1,20 @@
 import os
+from collections import defaultdict
 #
 from .engine import *
 from .window import *
 
+
+class BlockFlags(IntFlag):
+    NONE = auto()
+    DECOR = auto()
+    BUILD = auto()
+    CONSUME = auto()
+    ORE = auto()
+    ORGANIC = auto()
+    UTIL = auto()
+    GEAR = auto()
+    NONSQUARE = auto()
 
 
 d = Path("res", "images", "palettes")
@@ -30,4 +42,16 @@ _spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
 for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
         images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
-        
+
+breaking_sprs = imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
+
+data = defaultdict(lambda: BlockFlags.NONE, {
+    "sand": BlockFlags.ORGANIC,
+    "dynamite": BlockFlags.UTIL,
+    "lotus": BlockFlags.ORGANIC,
+    "bed": BlockFlags.UTIL,
+    "bed-right": BlockFlags.UTIL,
+    "rock": BlockFlags.DECOR | BlockFlags.ORGANIC | BlockFlags.NONSQUARE,
+})
+
+inventory_img = imgload("res", "images", "visuals", "inventory.png", scale=S)
