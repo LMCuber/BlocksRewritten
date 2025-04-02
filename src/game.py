@@ -36,7 +36,7 @@ class Game:
         #
         self.sword = get_sword((120, 120, 120))
         # menu stuff
-        menu.quit_button.command = self.quit
+        # menu.quit_button.command = self.quit
     
     @staticmethod
     def quit(self):
@@ -85,7 +85,7 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            window.target_fps = menu.target_fps.value
+            # window.target_fps = menu.target_fps.value
             dt = self.clock.tick(165) / (1 / 144 * 1000)
 
             for event in pygame.event.get():

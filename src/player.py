@@ -76,9 +76,9 @@ class Player:
         display.blit(image, image_rect)
         
         # show the hitboxes
-        if self.menu.hitboxes.checked:
+        if True or self.menu.hitboxes.checked:
             pygame.draw.rect(window.display, LIGHT_GREEN, self.game.scrolled_rect, 1)
-            # pygame.draw.rect(window.display, ORANGE, image_rect, 1)
+            pygame.draw.rect(window.display, ORANGE, image_rect, 1)
     
     def process_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
