@@ -23,7 +23,10 @@ class Game:
         self.widget_kwargs = {"font": fonts.orbitron[20], "anchor": "topleft"}
         self.clock = pygame.time.Clock()
         self.init_systems()
-        self.shader = ModernglShader(Path("src", "shaders", "vertex.glsl"), Path("src", "shaders", "fragment.glsl"))
+        self.shader = ModernglShader(
+            Path("src", "shaders", "vertex.glsl"),
+            Path("src", "shaders", "fragment.glsl")
+        )
         # runtime objects
         self.world = world.World(menu)
         self.player = player.Player(self, self.world, menu)
@@ -35,7 +38,7 @@ class Game:
         # joystick
         self.joystick = joystick.JoystickManager()
         #
-        self.sword = get_sword((120, 120, 120))
+        self.sword = get_staff((120, 120, 120))
         # menu stuff
         menu.quit.command = self.quit
     
@@ -80,8 +83,6 @@ class Game:
         self.shader.send("palettize", menu.palettize.checked)
 
         w = 120
-        # self.shader.send("deadZone", (pygame.mouse.get_pos()[0] - w, pygame.mouse.get_pos()[1] - w, w * 2, w * 2))
-        # self.shader.send("deadZone", (window.width / 2 - w, window.height / 2 - w, w * 2, w * 2))
         self.shader.send("deadZone", (0, 0, 0, 0))
         o = 0
         self.shader.send("rOffset", (-o, 0))
@@ -106,7 +107,8 @@ class Game:
     def mainloop(self):
         self.running = True
         while self.running:
-            dt = self.clock.tick(menu.fps_cap.value) / (1 / 144 * 1000)
+            window.fps_cap = menu.fps_cap.value
+            dt = self.clock.tick(window.fps_cap) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -146,7 +148,7 @@ class Game:
                 # draw and update the terrain
                 num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll)
                 processed_chunks.append(0)  # the "global" chunk, so entities that update always
-
+                
                 # process the ECS systems
                 self.process_systems(processed_chunks)
 
@@ -165,6 +167,7 @@ class Game:
             write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 80)
             write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 100)
 
+            self.sword.update()
             # --- DO RENDERING BEFORE THIS BLOCK ---
             self.send_data_to_shader()
 
@@ -175,8 +178,5 @@ class Game:
             pygame.display.flip()
 
             self.shader.release_all_textures()
-
-            # if ticks() - self.last_start >= 5_000:
-            #     self.running = False
 
         self.quit()

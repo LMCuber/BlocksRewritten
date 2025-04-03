@@ -201,7 +201,7 @@ class World:
                             )
                             _spawned = True
                         # forest tree
-                        if _chance(1 / 24) and False:
+                        if _chance(1 / 24):
                             # tree_height = _rand(10, 14)
                             tree_height = _nordis(9, 2)
                             for tree_yo in range(tree_height):
@@ -264,7 +264,7 @@ class World:
 
                 # chunks 0 and 1 need noise value for dirt and stone
                 if chunk_y in (0, 1):
-                    offset = int(octave_noise(block_x, 0, 0.04 * 0.01) * CW)
+                    offset = int(octave_noise(block_x, 0, 0.04) * CW)
 
                 if chunk_y < 0:
                     name = "air"

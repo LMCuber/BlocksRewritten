@@ -123,7 +123,7 @@ class Player:
                     self.action = Action.BREAK
 
                 return
-                # shoow a bullet entity
+                # show a bullet entity
                 m = pygame.mouse.get_pos()
                 dy = m[1] - window.height / 2
                 dx = m[0] - window.width / 2
@@ -134,7 +134,8 @@ class Player:
                     yvel = sin(angle + ao * 0.1) * m
                     create_entity(
                         CollisionFlag(CollisionFlags.SEND),
-                        Transform([self.rect.centerx, self.rect.centery], [xvel, yvel], TransformFlag(TransformFlags.PROJECTILE), 0.03),
+                        Transform([xvel, yvel], TransformFlag(TransformFlags.PROJECTILE), 0.03),
+                        # Hitbox((0, 0, ))
                         Sprite.from_path(Path("res", "images", "bullet.png"), 1, 0.1),
                         chunk=0
                     )
@@ -204,7 +205,7 @@ class Player:
             self.anim_mode = "run"
         
         # collision X
-        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 3), range_y=(-3, 3)):
+        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
             if self.rect.colliderect(rect):
                 if self.direc == Direction.RIGHT:
                     self.rect.right = rect.left
@@ -223,7 +224,7 @@ class Player:
 
         # collision Y
         # TODO: the range of the collision in the y-direction to account for movement
-        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 3), range_y=(-3, 3)):
+        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
             if self.rect.colliderect(rect):
                 if self.yvel > 0:
                     self.rect.bottom = rect.top
