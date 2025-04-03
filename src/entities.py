@@ -215,14 +215,16 @@ class PhysicsSystem:
                     hitbox.size = sprite.hitbox_size
 
             x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
-            range_x = (-x_disp, x_disp + 1)
+            range_x = (-x_disp, x_disp)
             y_disp = ceil(abs(tr.vel[1] / BS)) + ceil(hitbox.height / 2 / BS)
-            range_y = (-y_disp, y_disp + 3)
+            range_y = (-y_disp, y_disp)
 
             # vertical movement
             tr.vel[1] += tr.gravity
             hitbox.y += tr.vel[1]
             for rect in world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y):
+                # if hitboxes:
+                #     pygame.draw.rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
                 if hitbox.colliderect(rect):
                     if tr.vel[1] > 0:
                         hitbox.bottom = rect.top
@@ -247,10 +249,21 @@ class PhysicsSystem:
             
             # jump over obstacles if it is a mob
             if tr.flag & TransformFlags.MOB:
-                extended_rect = inflate_keep(hitbox, 20 * sign(tr.vel[0]))
+                # extended displacement range for jumping because rectangle is more in front
+                x_disp_ext = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
+                range_x_ext = (-x_disp_ext, x_disp_ext)
+                y_disp_ext = ceil(abs(tr.vel[1] / BS)) + ceil(hitbox.height / 2 / BS)
+                range_y_ext = (-y_disp_ext, y_disp_ext)
+
+                o = 20
+                extended_rect = hitbox.inflate(o * 2, 0).move(o * sign(tr.vel[0]), 0)
                 if hitboxes:
-                    pygame.draw.rect(self.display, (120, 120, 120), (extended_rect.x - scroll[0], extended_rect.y - scroll[1], *extended_rect.size), 1)
-                for rect in world.get_blocks_around(extended_rect):
+                    pygame.draw.rect(self.display, (120, 120, 120), extended_rect.move(-scroll[0], -scroll[1]), 1)
+                for rect in world.get_blocks_around(extended_rect, range_x=range_x_ext, range_y=range_y_ext):
+                    # draw the hitboxes
+                    if hitboxes:
+                        pygame.draw.rect(self.display, GREEN, rect.move(-scroll[0], -scroll[1]), 1)
+                    # jump the mob
                     if extended_rect.colliderect(rect):
                         tr.vel[1] = -3
 
@@ -280,12 +293,20 @@ class ChunkRepositioningSystem:
         self.operates(Hitbox)
     
     def process(self, chunks):
-        for ent, chunk, (hitbox,) in self.get_components(0, chunks=chunks):
+        for ent, chunk, arch, (hitbox,) in self.get_components(0, chunks=chunks, archetype=True):
+            # the percentage (fraction) is: (block position - chunk block position) / chunk size
             x, y = hitbox.center
-            perc_x, perc_y = (x / BS) / CW, (y / BS) / CH
-            # check if out of bounds
-            if perc_x >= 1:
-                self.relocate(0, ent, chunk, (chunk[0] + 1, chunk[1]))
+            perc_x = ((x / BS) - (chunk[0] * CW)) / CW
+            perc_y = ((y / BS) - (chunk[1] * CH)) / CH
+            # check if out of bounds and relocate
+            if perc_x <= 0:
+                self.relocate(chunk, arch, ent, (chunk[0] - 1, chunk[1]))
+            elif perc_x >= 1:
+                self.relocate(chunk, arch, ent, (chunk[0] + 1, chunk[1]))
+            elif perc_y <= 0:
+                self.relocate(chunk, arch, ent, (chunk[0], chunk[1] - 1))
+            elif perc_y >= 1:
+                self.relocate(chunk, arch, ent, (chunk[0], chunk[1] + 1))
 
 
 @system(cache=True)

@@ -37,7 +37,7 @@ class Game:
         #
         self.sword = get_sword((120, 120, 120))
         # menu stuff
-        # menu.quit_button.command = self.quit
+        menu.quit_button.command = self.quit
     
     @staticmethod
     def quit(self):

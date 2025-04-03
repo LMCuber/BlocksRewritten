@@ -204,7 +204,7 @@ class Player:
             self.anim_mode = "run"
         
         # collision X
-        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
+        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 3), range_y=(-3, 3)):
             if self.rect.colliderect(rect):
                 if self.direc == Direction.RIGHT:
                     self.rect.right = rect.left
@@ -223,7 +223,7 @@ class Player:
 
         # collision Y
         # TODO: the range of the collision in the y-direction to account for movement
-        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
+        for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 3), range_y=(-3, 3)):
             if self.rect.colliderect(rect):
                 if self.yvel > 0:
                     self.rect.bottom = rect.top
