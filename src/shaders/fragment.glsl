@@ -109,7 +109,8 @@ void main() {
 
     // when grayscale, then just make it grayscale
     if (grayscale) {
-        color = vec4(rgb_to_gray(color.rgb), cur.a);
+        // color = vec4(rgb_to_gray(color.rgb), cur.a);
+        color = vec4(color.rgb, cur.a);
     }
 
     // S E T  F I N A L  C O L O R

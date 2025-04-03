@@ -1,9 +1,13 @@
 import pygame
 import sys
 #
-from pyengine.pgbasics import Crystal
+from pyengine.pgbasics import *
+from pyengine.basics import *
+from pygame.math import Vector3 as Vec3
 #
 from src.window import *
+from src.engine import *
+from src import blocks
 
 
 # initializations
@@ -124,20 +128,20 @@ def get_icosahedron(base_color):
     w, l = 1, phi
     vertices = [
         # vertical
-        Vector3(-w, -l, 0),
-        Vector3(w, -l, 0),
-        Vector3(w, l, 0),
-        Vector3(-w, l, 0),
+        Vec3(-w, -l, 0),
+        Vec3(w, -l, 0),
+        Vec3(w, l, 0),
+        Vec3(-w, l, 0),
         # horizontal
-        Vector3(-l, 0, -w),
-        Vector3(l, 0, -w),
-        Vector3(l, 0, w),
-        Vector3(-l, 0, w),
+        Vec3(-l, 0, -w),
+        Vec3(l, 0, -w),
+        Vec3(l, 0, w),
+        Vec3(-l, 0, w),
         # interplanar
-        Vector3(0, -w, -l),
-        Vector3(0, -w, l),
-        Vector3(0, w, l),
-        Vector3(0, w, -l),
+        Vec3(0, -w, -l),
+        Vec3(0, -w, l),
+        Vec3(0, w, l),
+        Vec3(0, w, -l),
     ]
     vertices = [[p + randf(-1.5, 1.5) for p in v] for v in vertices]
     icosahedron = Crystal(
@@ -169,7 +173,7 @@ def get_icosahedron(base_color):
             [[grays[rand(30, 100)], WHITE], [6, 5, 2]],
             [[grays[rand(30, 100)], WHITE], [5, 11, 2]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.000, 0,
+        (300, 300), mult, 2, 0, 0, 0, 0, 0.002, 0.003,
         fill_as_connections=False,
     )
     return icosahedron
@@ -659,7 +663,7 @@ def get_spear(base_color):
         (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
-    return kunai
+    return spear
 
 
 def get_spear(base_color):
@@ -712,7 +716,7 @@ def get_spear(base_color):
         (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
-    return kunai
+    return spear
 
 
 def get_bow(base_color):
@@ -1028,12 +1032,12 @@ def get_staff(base_color):
         ], [
             # fills
             # base
-            [[g.w.surf_assets["blocks"]["wooden-planks"], None], [0, 1, 2, 3]],
-            [[g.w.surf_assets["blocks"]["wooden-planks"], None], [4, 5, 1, 0]],
-            [[g.w.surf_assets["blocks"]["wooden-planks"], None], [5, 4, 7, 6]],
-            [[g.w.surf_assets["blocks"]["wooden-planks"], None], [3, 2, 6, 7]],
-            [[g.w.surf_assets["blocks"]["wooden-planks"], None], [4, 0, 3, 7]],
-            [[g.w.surf_assets["blocks"]["wooden-planks"], None], [1, 5, 6, 2]],
+            [[blocks.images["wooden-planks"], None], [0, 1, 2, 3]],
+            [[blocks.images["wooden-planks"], None], [4, 5, 1, 0]],
+            [[blocks.images["wooden-planks"], None], [5, 4, 7, 6]],
+            [[blocks.images["wooden-planks"], None], [3, 2, 6, 7]],
+            [[blocks.images["wooden-planks"], None], [4, 0, 3, 7]],
+            [[blocks.images["wooden-planks"], None], [1, 5, 6, 2]],
             # orb BL
             [[get_aquamarine(choice(list(range(1, 4)) + [""])), outline_color], [0 + 8, 1 + 8, 2 + 8, 3 + 8]],
             [[get_aquamarine(choice(list(range(1, 4)) + [""])), outline_color], [4 + 8, 5 + 8, 1 + 8, 0 + 8]],
