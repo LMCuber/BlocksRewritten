@@ -68,7 +68,7 @@ class Player:
         self.menu = menu
         # animation parameters
         self.anim_index = 0  # index of spritesheet
-        self.anim_skin = "nutcracker"
+        self.anim_skin = "samurai"
         self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
@@ -181,7 +181,7 @@ class Player:
                                 self.world.breaking.anim = 0
                 elif mouses[2]:
                     if self.action == Action.PLACE:
-                        self.world.data[chunk_index][block_pos] = "dynamite"
+                        self.world.data[chunk_index][block_pos] = "bricks"
 
     def move(self, dt):
         # init

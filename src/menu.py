@@ -53,4 +53,3 @@ for xo, widget_type in zip(render_range, widgets):
         else:
             margin = kwargs["height"] + 2
         widget.set_pos((window.width / 2 + xo, 170 + yo * margin), "midtop")
-

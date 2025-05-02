@@ -24,8 +24,8 @@ class Game:
         self.clock = pygame.time.Clock()
         self.init_systems()
         self.shader = ModernglShader(
-            Path("src", "shaders", "vertex.glsl"),
-            Path("src", "shaders", "fragment.glsl")
+            Path("src", "shaders", "default.vert"),
+            Path("src", "shaders", "default.frag")
         )
         # runtime objects
         self.world = world.World(menu)
@@ -38,7 +38,7 @@ class Game:
         # joystick
         self.joystick = joystick.JoystickManager()
         #
-        self.sword = get_staff((120, 120, 120))
+        self.sword = get_sword((120, 120, 120))
         # menu stuff
         menu.quit.command = self.quit
     
@@ -167,7 +167,8 @@ class Game:
             write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 80)
             write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 100)
 
-            self.sword.update()
+            # self.sword.update()
+            
             # --- DO RENDERING BEFORE THIS BLOCK ---
             self.send_data_to_shader()
 

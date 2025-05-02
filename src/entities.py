@@ -17,23 +17,20 @@ del Window, Renderer, Texture, Image
 
 # anim data masterclass (hehe)
 class AnimData:
-    with open(Path("res", "data", "player_animations.yaml")) as f:
-        yaml_data = yaml.safe_load(f);
-
     data = {}
-    for skin in yaml_data:
-        data[skin] = {}
-        for mode in yaml_data[skin]:
-            data[skin][mode] = {}
-            # check if a spritesheet is player spritesheet or a mob
-            try:
-                data[skin][mode]["images"] = imgload("res", "images", "player_animations", skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
-            except FileNotFoundError:
-                data[skin][mode]["images"] = imgload("res", "images", "mobs", skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
-            data[skin][mode]["offset"] = yaml_data[skin][mode].get("offset", 0)
-            data[skin][mode]["speed"] = yaml_data[skin][mode].get("speed", 0.08)
-            data[skin][mode]["hitbox"] = yaml_data[skin][mode].get("hitbox", None)
+    for entity_type in ["player_animations", "mobs", "statics"]:
+        with open(Path("res", "data", f"{entity_type}.yaml")) as f:
+            yaml_data = yaml.safe_load(f);
 
+        for skin in yaml_data:
+            data[skin] = {}
+            for mode in yaml_data[skin]:
+                data[skin][mode] = {}
+                data[skin][mode]["images"] = imgload("res", "images", entity_type, skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
+                data[skin][mode]["offset"] = yaml_data[skin][mode].get("offset", 0)
+                data[skin][mode]["speed"] = yaml_data[skin][mode].get("speed", 0.08)
+                data[skin][mode]["hitbox"] = yaml_data[skin][mode].get("hitbox", None)
+        
     @classmethod
     def get(cls, skin, mode):
         if skin == "_default":
@@ -126,6 +123,11 @@ class Transform:
 @dataclass
 class PlayerFollower:
     max_distance: int
+    follow_delay: int = 500
+
+    def __post_init__(self):
+        self.last_followed: int = 0
+        self.started_following: bool = False
 
 
 @component
@@ -169,6 +171,7 @@ class Sprite:
     def from_path(cls, path):
         self = cls()
         self.anim = 0
+        self.rot = 0
         self.anim_skin = path.parts[-2]  # "nutcracker"
         self.anim_mode = path.stem  # "run"
         # -- BELOW UPDATED EVERY FRAME --
@@ -194,6 +197,12 @@ class DamageText:
         self.img = fonts.orbitron[size].render(str(damage), True, color)
         self.inited = False
         self.offset = None
+
+
+@component
+@dataclass
+class Headbutter:
+    force: int = 10
     
 
 # SYSTEMS -----------------------------------------------------
@@ -206,6 +215,8 @@ class PhysicsSystem:
     
     def process(self, world, scroll, hitboxes: bool, chunks):
         for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
+            sprite.rot = 0
+
             # check if hitbox needs to be initialized by a Sprite
             # physics
             if hitbox.size == (0, 0):
@@ -263,9 +274,10 @@ class PhysicsSystem:
                     # draw the hitboxes
                     if hitboxes:
                         pygame.draw.rect(self.display, GREEN, rect.move(-scroll[0], -scroll[1]), 1)
-                    # jump the mob
+                    # jump the mob because it sees a block in front of it
                     if extended_rect.colliderect(rect):
-                        tr.vel[1] = -3
+                        tr.vel[1] = -2
+                        sprite.rot = 90
 
 
 @system(cache=True)
@@ -294,7 +306,7 @@ class ChunkRepositioningSystem:
     
     def process(self, chunks):
         for ent, chunk, arch, (hitbox,) in self.get_components(0, chunks=chunks, archetype=True):
-            # the percentage (fraction) is: (block position - chunk block position) / chunk size
+            # the percentage is: (block position - chunk block position) / chunk size
             x, y = hitbox.center
             perc_x = ((x / BS) - (chunk[0] * CW)) / CW
             perc_y = ((y / BS) - (chunk[1] * CH)) / CH
@@ -320,6 +332,8 @@ class RenderSystem:
         for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
             # get which image
             image = sprite.images[int(sprite.anim)]
+            # rotate it when needed
+            image = pygame.transform.rotate(image, sprite.rot)
             # flip the image if player is moving to the left instead of to the right
             if tr.vel[0] < 0:
                 image = pygame.transform.flip(image, True, False)
@@ -345,11 +359,16 @@ class PlayerFollowerSystem:
     
     def process(self, player, chunks):
         for ent, chunk, (pf, tr, hitbox) in self.get_components(0, chunks=chunks):
-            dist = hypot(hitbox.centerx - player.rect.centerx, hitbox.centery - player.rect.centery)
-            if hitbox.centerx > player.rect.centerx and tr.vel[0] > 0:
-                tr.vel[0] *= -1
-            elif hitbox.centerx < player.rect.centerx and tr.vel[0] < 0:
-                tr.vel[0] *= -1
+            if pf.started_following:
+                if ticks() - pf.last_followed >= pf.follow_delay:
+                    if hitbox.centerx > player.rect.centerx and tr.vel[0] > 0:
+                        tr.vel[0] *= -1
+                    elif hitbox.centerx < player.rect.centerx and tr.vel[0] < 0:
+                        tr.vel[0] *= -1
+                    pf.started_following = False
+            else:
+                pf.last_followed = ticks()
+                pf.started_following = True
 
 
 @system(cache=True)
@@ -372,6 +391,7 @@ class CollisionSystem:
         self.set_cache(True)
         self.operates(CollisionFlag, Transform, Sprite)  # regular collisions and senders
         self.operates(CollisionFlag, Transform, Sprite, Health)  # collisions of receivers
+        self.operates(Transform, Hitbox, Sprite, Headbutter)  # headbutting entities
     
     def process(self, player, chunks):
         """
@@ -403,6 +423,11 @@ class CollisionSystem:
                                 self.delete(1, r_ent, r_chunk)
                             # make the bullet inactive
                             s_col_flag.set(CollisionFlags.INACTIVE)
+        # check the headbutters
+        for ent, chunk, (tr, hitbox, sprite, butt) in self.get_components(2, chunks=chunks):
+            # check for collision with the player
+            if player.rect.colliderect(hitbox):
+                player.yvel = -10
 
 
 @system(cache=True)

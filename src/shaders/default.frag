@@ -97,7 +97,9 @@ void main() {
 
     // gaussian blur
     if (blurSigma > 0.3) {
-        color = vec4(gaussianBlur(pos, blurSigma).rgb, texture(tex, pos).a);
+        vec3 c1 = gaussianBlur(pos, blurSigma).rgb;
+        vec3 c2 = gaussianBlur(pos, blurSigma * 3).rgb;
+        color = vec4(c1 - c2, texture(tex, pos).a);
     } else {
         color = vec4(texture(tex, pos));
     }
@@ -112,6 +114,19 @@ void main() {
         // color = vec4(rgb_to_gray(color.rgb), cur.a);
         color = vec4(color.rgb, cur.a);
     }
+
+    // kuwahara!
+    // int index = 0;
+    // vec4 neighbors[16];
+    // for (int yo = -2; yo < 3; yo++) {
+    //     for (int xo = -2; xo < 3; xo++) {
+    //         if (xo == 0 || yo == 0) {
+    //             continue;
+    //         }
+    //         neighbors[index] = texture(tex, pos - pix * vec2(xo, yo));
+    //         index++;
+    //     }
+    // }
 
     // S E T  F I N A L  C O L O R
     fColor = color;

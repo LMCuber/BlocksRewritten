@@ -190,16 +190,24 @@ class World:
                 if name == bio.blocks[biome][0] and _get((block_x, block_y - 1)) == "air":
                     # forest modifications
                     if biome == Biome.FOREST:
-                        #
-                        if not _spawned and chunk_index == (0, 0) and _chance(1 / 5):
+                        # entitites
+                        if not _spawned and False and chunk_index == (0, 0) and _chance(1 / 5):
                             create_entity(
-                                Transform([0, 0], [0.6, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
+                                Transform([0, 0], [2.1, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
                                 Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (0, 0), anchor="midbottom"),
                                 Sprite.from_path(Path("res", "images", "mobs", "bok-bok", "walk.png")),
                                 PlayerFollower(0),
+                                Headbutter(30),
                                 chunk=chunk_index
                             )
                             _spawned = True
+                        if _chance(1 / 20):
+                            create_entity(
+                                Transform([0, 0], [0, 0]),
+                                Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (100, 100), anchor="midbottom"),
+                                Sprite.from_path(Path("res", "images", "spritesheets", "statics", "portal", "idle.png")),
+                                chunk=chunk_index
+                            )
                         # forest tree
                         if _chance(1 / 24):
                             # tree_height = _rand(10, 14)
@@ -329,7 +337,7 @@ class World:
                 #display.blit(surf, chunk_topleft)
                 if self.menu.chunk_borders.checked:
                     pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
-                write(display, "center", chunk_index, fonts.orbitron[20], (0, 0, 0), *chunk_rect.center)
+                    write(display, "center", chunk_index, fonts.orbitron[20], (0, 0, 0), *chunk_rect.center)
                 #
                 processed_chunks.append(chunk_index)
         # show the breaking block
