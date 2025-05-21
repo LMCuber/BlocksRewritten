@@ -23,12 +23,17 @@ class AnimData:
             yaml_data = yaml.safe_load(f);
 
         for skin in yaml_data:
+            # load the defaults (different from _default, which is the default player character)
+            if skin == "DEFAULT":
+                default_speed = yaml_data[skin]["speed"]
+                continue
+
             data[skin] = {}
             for mode in yaml_data[skin]:
                 data[skin][mode] = {}
                 data[skin][mode]["images"] = imgload("res", "images", entity_type, skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
                 data[skin][mode]["offset"] = yaml_data[skin][mode].get("offset", 0)
-                data[skin][mode]["speed"] = yaml_data[skin][mode].get("speed", 0.08)
+                data[skin][mode]["speed"] = yaml_data[skin][mode].get("speed", default_speed)
                 data[skin][mode]["hitbox"] = yaml_data[skin][mode].get("hitbox", None)
         
     @classmethod

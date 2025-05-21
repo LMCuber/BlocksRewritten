@@ -6,7 +6,9 @@ from pyengine.ecs import *
 from .engine import *
 from .entities import *
 from .window import window
-from .blocks import BlockFlags, inventory_img
+from .blocks import BF, inventory_img
+from .midblit import MBT
+from .tools import *
 
 
 
@@ -21,9 +23,15 @@ class Direction(Enum):
 
 
 class Action(Enum):
+    NONE = auto()
     PLACE = auto()
     BREAK = auto()
-    NONE = auto()
+    INTERACT = auto()
+
+
+class MoveMode(Enum):
+    NORMAL = auto()
+    ROPE = auto()
 
 
 class Inventory:
@@ -79,16 +87,19 @@ class Player:
         self.yvel = 0
         self.xvel = 0
         self.gravity = glob.gravity
+        self.move_mode = MoveMode.NORMAL
         # keyboard input
         self.jumps_left = 2
         self.pressing_jump = False
-        # actions with blocks
+        # interaction with blocks
         self.action = Action.NONE
         self.inventory = Inventory()
+        self.inventory.add("dynamite", 10)
+        self.last_placed = []
     
-    def update(self, display, block_rects, dt):
+    def update(self, display, dt):
         self.move(dt)
-        self.interact(display, block_rects)
+        self.edit(display)
         self.draw(display)
         self.inventory.update(display)
 
@@ -117,58 +128,94 @@ class Player:
             pygame.draw.rect(window.display, LIGHT_GREEN, image_rect, 1)
     
     def process_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                if self.action == Action.NONE:
-                    self.action = Action.BREAK
+        if not self.game.disable_input:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                # right mouse button
+                if event.button == 3:
+                    self.interact()
 
-                return
-                # show a bullet entity
-                m = pygame.mouse.get_pos()
-                dy = m[1] - window.height / 2
-                dx = m[0] - window.width / 2
-                m = 10
-                for ao in range(1):
-                    angle = atan2(dy, dx)
-                    xvel = cos(angle + ao * 0.1) * m
-                    yvel = sin(angle + ao * 0.1) * m
-                    create_entity(
-                        CollisionFlag(CollisionFlags.SEND),
-                        Transform([xvel, yvel], TransformFlag(TransformFlags.PROJECTILE), 0.03),
-                        # Hitbox((0, 0, ))
-                        Sprite.from_path(Path("res", "images", "bullet.png"), 1, 0.1),
-                        chunk=0
-                    )
-
-            elif event.button == 3:
-                if self.action == Action.NONE:
-                    self.action = Action.PLACE
-
-        elif event.type == pygame.MOUSEBUTTONUP:
-            self.action = Action.NONE
-            self.world.breaking.index = None
-            self.world.breaking.pos = None
+            elif event.type == pygame.MOUSEBUTTONUP:
+                self.action = Action.NONE
+                self.world.breaking.index = None
+                self.world.breaking.pos = None
         
-        elif event.type == pygame.KEYDOWN:
+        if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
                 self.anim_skin = cyclic(["_default", "samurai", "nutcracker"])[self.anim_skin]
+            
+            elif event.key == pygame.K_f:
+                # interact key
+                self.f_interact()
     
-    def interact(self, display, block_rects):
+    def f_interact(self):
+        for rect, base in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4), return_name=True):
+            if self.rect.colliderect(rect):
+                # check which interaction to do
+                if base == "rope":
+                    if self.move_mode == MoveMode.NORMAL:
+                        # attach to rope
+                        self.move_mode = MoveMode.ROPE
+                    else:
+                        # detach from rope
+                        self.move_mode = MoveMode.NORMAL
+                    break
+    
+    def interact(self):
         if self.game.substate == Substates.PLAY:
             # get mouse data
             mouse = pygame.mouse.get_pos()
             mouses = pygame.mouse.get_pressed()
-            if mouses[0] or mouses[2]:
-                # check where the mouse wants to place a block and whether it's prohibited
-                chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
-                # place or break block
+            chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
+            base, mods = self.world.bnorm(self.world.data[chunk_index].get(block_pos, ""))
+
+            if base == "dynamite":
+                # make dynamite explode
+                def detonate():
+                    for xo, yo in self.world.get_radius_around(7):
+                        new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                        if self.world.exists(new_chunk_index, new_block_pos):
+                            self.world.break_(new_chunk_index, new_block_pos)
+                            time.sleep(10 ** -4)
+                DThread(target=detonate).start()
+            
+            elif base == "workbench":
+                self.game.midblit.set(MBT.WORKBENCH)
+
+    def edit(self, display):
+        if self.game.substate == Substates.PLAY:
+            # get mouse data
+            mouse = pygame.mouse.get_pos()
+            mouses = pygame.mouse.get_pressed()
+            
+            # interact your mouse with the blocks
+            if not self.game.disable_input:
                 if mouses[0]:
+                    # check where the mouse wants to place a block and whether it's prohibited
+                    chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
+                    base, mods = self.world.bnorm(self.world.data[chunk_index].get(block_pos, ""))
+
+                    """
+                    base is "" (empty string literal) if it doesn't exist
+                    """
+
+                    # first decide what to do with the click depending on the block underneath
+                    if self.action == Action.NONE:
+                        # decide whether the first block you click on should be broken, edited, created on, etc.
+                        if base == "" or "b" in mods:
+                            # the block should be placed
+                            self.action = Action.PLACE
+                        else:
+                            # the block should be broken
+                            self.action = Action.BREAK
+
+                    # break the block
                     if self.action == Action.BREAK:
-                        # for xo, yo in product(range(-1, 2), repeat=2):
-                        #     new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
-                        #     if new_block_pos in self.world.data[new_chunk_index]:
-                        #         del self.world.data[new_chunk_index][new_block_pos]
-                        if block_pos in self.world.data[chunk_index]:
+                        for xo, yo in product(range(-1, 2), repeat=2):
+                            new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                            if new_block_pos in self.world.data[new_chunk_index]:
+                                self.world.break_(new_chunk_index, new_block_pos)
+
+                        if False and block_pos in self.world.data[chunk_index]:
                             # del self.world.data[chunk_index][block_pos]
                             # increase the world breaking
                             if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
@@ -179,9 +226,42 @@ class Player:
                                 self.world.breaking.index = chunk_index
                                 self.world.breaking.pos = block_pos
                                 self.world.breaking.anim = 0
-                elif mouses[2]:
-                    if self.action == Action.PLACE:
-                        self.world.data[chunk_index][block_pos] = "bricks"
+
+                    # build a new block
+                    elif self.action == Action.PLACE:
+                        # check if block is not there or a background block
+                        can_place = False
+                        if block_pos not in self.world.data[chunk_index]:
+                            can_place = True
+                        else:
+                            base, mods = self.world.bnorm(self.world.data[chunk_index][block_pos])
+                            if "b" in mods:
+                                can_place = True
+                        if can_place:
+                            placed_name = "dynamite"
+                            self.world.set(chunk_index, block_pos, placed_name)
+                            self.process_placed_block(chunk_index, block_pos, placed_name)
+                        
+                    # edit the block
+                    elif self.action == Action.INTERACT:
+                        print("ASD")
+    
+    def process_placed_block(self, chunk_index, block_pos, block):
+        if block == "karabiner":
+            if self.last_placed:
+                # there is already a karabiner placed down so connect
+                k1_chunk_index, k1_block_pos, _ = self.last_placed
+                d_block_pos = (block_pos[0] - self.last_placed[1][0], block_pos[1] - self.last_placed[1][1])
+                # check whether the two karabiners are horizontally or vertically aligned
+                if any(d_block_pos) and not all(d_block_pos):
+                    # connect the karabiners with rope
+                    if d_block_pos[0] > 0:
+                        # connect horizontally
+                        for xo in range(1, d_block_pos[0]):
+                            new_chunk_index, new_block_pos = self.world.correct_tile(k1_chunk_index, k1_block_pos, xo, 0)
+                            self.world.set(chunk_index, block_pos, "rope")
+            self.last_placed = [chunk_index, block_pos, block]
+
 
     def move(self, dt):
         # init
@@ -219,8 +299,9 @@ class Player:
         else:
             self.pressing_jump = False
 
-        self.yvel += self.gravity
-        self.rect.y += self.yvel
+        if self.move_mode == MoveMode.NORMAL:
+            self.yvel += self.gravity
+            self.rect.y += self.yvel
 
         # collision Y
         # TODO: the range of the collision in the y-direction to account for movement

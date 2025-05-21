@@ -1,6 +1,7 @@
 #version 330 core
 
 uniform sampler2D tex;
+// uniform sampler2D lightmap;
 uniform sampler2D paletteTex;
 
 uniform float time;
@@ -83,26 +84,14 @@ vec3 gaussianBlur(vec2 pos, float sigma) {
 
 void main() {
     // safe
-    time; paletteTex; rOffset; gOffset; bOffset; pink;
+    time; paletteTex; rOffset; gOffset; bOffset; pink; deadZone;
 
     // initializen variabeln
     vec4 color;
     vec4 cur = texture(tex, pos);
 
-    // check dead areas
-    if (aabb(pos * res, deadZone)) {
-        fColor = cur;
-        return;
-    }
-
     // gaussian blur
-    if (blurSigma > 0.3) {
-        vec3 c1 = gaussianBlur(pos, blurSigma).rgb;
-        vec3 c2 = gaussianBlur(pos, blurSigma * 3).rgb;
-        color = vec4(c1 - c2, texture(tex, pos).a);
-    } else {
-        color = vec4(texture(tex, pos));
-    }
+    color = vec4(texture(tex, pos));
 
     // palettize after blur
     if (palettize) {
@@ -115,18 +104,7 @@ void main() {
         color = vec4(color.rgb, cur.a);
     }
 
-    // kuwahara!
-    // int index = 0;
-    // vec4 neighbors[16];
-    // for (int yo = -2; yo < 3; yo++) {
-    //     for (int xo = -2; xo < 3; xo++) {
-    //         if (xo == 0 || yo == 0) {
-    //             continue;
-    //         }
-    //         neighbors[index] = texture(tex, pos - pix * vec2(xo, yo));
-    //         index++;
-    //     }
-    // }
+    // fColor = color;
 
     // S E T  F I N A L  C O L O R
     fColor = color;

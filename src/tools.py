@@ -1,5 +1,7 @@
 import pygame
 import sys
+import opensimplex as osim
+from scipy.spatial import ConvexHull
 #
 from pyengine.pgbasics import *
 from pyengine.basics import *
@@ -56,7 +58,7 @@ def get_crystal(type_, color=None):
         crystal_data["point_colors"] if color is None else [color] * len(crystal_data["vertices"]),
         crystal_data["connections"],
         [],
-        (300, 300), 18, 3, 0, 0, 0, 0.015, 0.015, 0.015
+        (window.width / 2, window.height / 2), 18, 3, 0, 0, 0, 0.015, 0.015, 0.015
     )
     return bcc
 
@@ -85,28 +87,33 @@ def get_sphere(base_color):
                 z = r * sin(lat) * cos(lon)
                 x = r * sin(lat) * sin(lon)
                 y = -r * cos(lat)
-                vertex = (x, y, z)
-                vertex = [p + osimplex.noise3(x=x * 3, y=y * 3, z=z * 3) * 0.5 for p in vertex]
+                m = osim.noise3(x=x * 3, y=y * 3, z=z * 3) * 0.6 + 1
+                vertex = Vec3(x, y, z) * m
                 if vertex not in vertices:
                     vertices.append(vertex)
+
         # fills
         fills = []
         # tip (triangles)
         fills.extend([
-            [[[rand(0, 255)] * 4, (0, 0, 0, 0)], 0, (n + 1) if n < num_lon else 1, n]
+            [[[rand(0, 255)] * 4, (0, 0, 0, 0)], [0, (n + 1) if n < num_lon else 1, n]]
             for n in range(1, num_lon + 1)
         ])
         # body (quads)
         for y in range(num_lat - 2):
             fills.extend([
-                [[[rand(0, 255)] * 4, (0, 0, 0, 0)], y * num_lon + n, *((y * num_lon + n + 1, y * num_lon + n + num_lon + 1) if n < num_lon else (y * num_lon + 1, y * num_lon + num_lon + 1)), y * num_lon + n + num_lon]
+                [[[rand(0, 255)] * 4, (0, 0, 0, 0)], [y * num_lon + n, *((y * num_lon + n + 1, y * num_lon + n + num_lon + 1) if n < num_lon else (y * num_lon + 1, y * num_lon + num_lon + 1)), y * num_lon + n + num_lon]]
                 for n in range(1, num_lon + 1)
             ])
         # bottom tip (triangles)
         fills.extend([
-            [[[rand(0, 255)] * 4, (0, 0, 0, 0)], (num_lat - 2) * num_lon + n, ((num_lat - 2) * num_lon + n + 1) if n < num_lon else ((num_lat - 2) * num_lon + 1), (num_lat - 1) * num_lon + 1]
+            [[[rand(0, 255)] * 4, (0, 0, 0, 0)], [(num_lat - 2) * num_lon + n, ((num_lat - 2) * num_lon + n + 1) if n < num_lon else ((num_lat - 2) * num_lon + 1), (num_lat - 1) * num_lon + 1]]
             for n in range(1, num_lon + 1)
         ])
+        fills = []
+        for simplex in hull.simplices:
+            fill = [[[rand(0, 255)] * 4, (0, 0, 0, 0)], simplex]
+            fills.append(fill)
         # object creation
         sphere = Crystal(
             window.display,
@@ -116,10 +123,52 @@ def get_sphere(base_color):
                 # lines
             ],
             fills,
-            (300, 300), mult, point_r, 0, 0, 0, 0.03, 0.03, 0.03,
+            (window.width / 2, window.height / 2), mult, point_r, 0, 0, 0, 0, 0, 0,
             fill_as_connections=False,
+            backface_culling=False,
         )
-    sphere.save_to_file(path("src", "shapes", "spheres", name))
+    # sphere.save_to_file(path("src", "shapes", "spheres", name))
+    return sphere
+    
+
+def get_rock(base_color):
+    num_lon = 8
+    num_lat = 8
+    mult = 120
+    
+    # generate vertices
+    vertices = []
+    for _ in range(32):
+        point_r = random.random()
+        u1 = random.random()
+        u2 = random.random()
+        phi = acos(2 * u1 - 1) - pi / 2
+        lamb = 2 * pi * u2
+        x = point_r * cos(phi) * cos(lamb)
+        y = point_r * cos(phi) * sin(lamb)
+        z = point_r * sin(phi)    
+        vertices.append((x, y, z))
+
+    # generate the triangles with convex hull algorithm
+    hull = ConvexHull(vertices)
+    fills = []
+    for simplex in hull.simplices:
+        fill = [[[rand(0, 255)] * 4, (0, 0, 0, 0)], simplex]
+        fills.append(fill)
+
+    # object creation
+    sphere = Crystal(
+        window.display,
+        vertices, [
+
+        ], [
+            # lines
+        ],
+        fills,
+        (window.width / 2, window.height / 2), mult, 1, 0, 0, 0, 0.01, 0.01, 0.01,
+        fill_as_connections=False,
+        backface_culling=False,
+    )
     return sphere
 
 
@@ -143,7 +192,7 @@ def get_icosahedron(base_color):
         Vec3(0, w, l),
         Vec3(0, w, -l),
     ]
-    vertices = [[p + randf(-1.5, 1.5) for p in v] for v in vertices]
+    # vertices = [[p + randf(-1.2, 1.2) for p in v] for v in vertices]
     icosahedron = Crystal(
         window.display,
         vertices, [
@@ -173,35 +222,8 @@ def get_icosahedron(base_color):
             [[grays[rand(30, 100)], WHITE], [6, 5, 2]],
             [[grays[rand(30, 100)], WHITE], [5, 11, 2]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.002, 0.003,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0, 0, 0,
         fill_as_connections=False,
-    )
-    return icosahedron
-
-
-def get_rock(base_color):
-    mult = 160
-    vertices = []
-    for _ in range(6):
-        u1 = randf(0, 1)
-        u2 = randf(0, 1)
-        fi = acos(2 * u1 - 1) - pi / 2
-        lambduh = 2 * pi * u2
-        x = cos(fi) * cos(lambduh)
-        y = cos(fi) * sin(lambduh)
-        z = sin(fi)
-        vertices.append([x, y, z])
-    icosahedron = Crystal(
-        window.display,
-        vertices, [
-
-        ], [
-
-        ],
-        FillOptions.DELAUNAY,
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
-        backface_culling=False,
     )
     return icosahedron
 
@@ -279,7 +301,7 @@ def get_sword(base_color):
             [[browns[130], outline_color], [4 + 16, 0 + 16, 3 + 16, 7 + 16]],
             [[browns[120], outline_color], [1 + 16, 5 + 16, 6 + 16, 2 + 16]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0, 0,
         fill_as_connections=False,
     )
     return sword
@@ -349,7 +371,7 @@ def get_katana(base_color):
             [[grays[240]], [4 + 8 + len(pattern), 0 + 8 + len(pattern), 3 + 8 + len(pattern), 7 + 8 + len(pattern)]],
             [[grays[240]], [1 + 8 + len(pattern), 5 + 8 + len(pattern), 6 + 8 + len(pattern), 2 + 8 + len(pattern)]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     """
@@ -450,7 +472,7 @@ def get_axe(base_color):
             [[blade_color, outline_color], [14, 13, 22]],
 
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015,0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015,0,
         fill_as_connections=False,
     )
     return axe
@@ -503,7 +525,7 @@ def get_shovel(base_color):
             # tip
             [[grays[170], outline_color], [10, 11, 12]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015,0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015,0,
         fill_as_connections=False,
         backface_culling=False,
     )
@@ -552,7 +574,7 @@ def get_pickaxe(base_color):
             # connecting the head
 
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015,0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015,0,
         fill_as_connections=False,
     )
     return pickaxe
@@ -606,7 +628,7 @@ def get_kunai(base_color):
             [[browns[60], outline_color], [12, 8, 5, 9]],
             [[browns[60], outline_color], [9, 10, 11, 12]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     return kunai
@@ -660,7 +682,7 @@ def get_spear(base_color):
             [[browns[60], outline_color], [12, 8, 5, 9]],
             [[browns[60], outline_color], [9, 10, 11, 12]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     return spear
@@ -713,7 +735,7 @@ def get_spear(base_color):
             [[browns[70], outline_color], [11, 7, 8, 12]],
             [[browns[60], outline_color], [12, 8, 5, 9]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     return spear
@@ -772,7 +794,7 @@ def get_bow(base_color):
             # connect-top
             [[get_brown(160, 20), outline_color], [1 + 8, 5 + 8, 6 + 8, 2 + 8]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     return bow
@@ -873,7 +895,7 @@ def get_hammer(base_color):
             [[browns[120], None], [24 + 4, 24 + 0, 24 + 3, 24 + 7]],
             [[browns[130], None], [24 + 1, 24 + 5, 24 + 6, 24 + 2]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     return hammer
@@ -963,7 +985,7 @@ def get_dart(base_color):
             # back
             [[get_acolor(230, 20), outline_color], [21, 22, 16, 0]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
         backface_culling=False,
     )
@@ -1067,7 +1089,7 @@ def get_staff(base_color):
             [[get_red(140, 20), outline_color], [4 + 8 * 4, 0 + 8 * 4, 3 + 8 * 4, 7 + 8 * 4]],
             [[get_red(140, 20), outline_color], [1 + 8 * 4, 5 + 8 * 4, 6 + 8 * 4, 2 + 8 * 4]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, 0.015, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
         fill_as_connections=False,
     )
     return hammer
@@ -1123,7 +1145,7 @@ def get_maru(mult, hard, medium, soft):
             [[hard, hard], [0, 1, 2, 3]],
             [[hard, hard], [3, 4, 5, 0]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
         fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
@@ -1177,7 +1199,7 @@ def get_kobuse(mult, hard, medium, soft):
             [[soft, soft], [0, 6, 7, 8]],
             [[soft, soft], [0, 8, 9, 10]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
         fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
@@ -1233,7 +1255,7 @@ def get_honsanmai(mult, hard, medium, soft):
             [[soft, soft], [0, 6, 11]],
 
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
         fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
@@ -1289,10 +1311,10 @@ def get_shihozume(mult, hard, medium, soft):
             [[medium, medium], [0, 6, 11]],
 
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
         fill_as_connections=False,
-        target_oox=0,
-        target_m=compos_mult,
+        # target_oox=0,
+        # target_m=compos_mult,
         speed=compos_speed,
     )
     return shihozume
@@ -1346,7 +1368,7 @@ def get_makuri(mult, hard, medium, soft):
             [[soft, soft], [11, 6, 7, 8]],
             [[soft, soft], [10, 11, 8, 9]],
         ],
-        (300, 300), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
         fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,

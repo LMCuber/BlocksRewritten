@@ -11,3 +11,4 @@ class JoystickManager:
     def update(self):
         for joy in self.joysticks:
             pass
+        

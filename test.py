@@ -16,7 +16,7 @@ LIGHT_GRAY = (200, 200, 200)
 # constants
 pygame.init()
 
-GRID_SIZE = 128
+GRID_SIZE = 2 ** 6
 WIDTH = 2 ** 9
 HEIGHT = 2 ** 9
 TILE_SIZE = WIDTH / GRID_SIZE
@@ -29,7 +29,7 @@ TARG_FPS = 60
 font = pygame.font.SysFont("Courier New", 20)
 
 
-markov = Markov(Path("wfc.xml"), [GRID_SIZE] * 2)
+markov = Markov(Path("cave.xml"), [GRID_SIZE] * 2)
 
 def main():
     start_markov = False

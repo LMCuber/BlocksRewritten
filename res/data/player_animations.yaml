@@ -1,5 +1,6 @@
-# DEFAULT SPEED: 0.08
 # P L A Y E R  A N I M A T I O N S ------------------------------------------------------------
+DEFAULT:
+    speed: 0.088
 
 nutcracker:
     run:

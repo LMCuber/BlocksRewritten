@@ -1,6 +1,8 @@
 import pygame
 from pathlib import Path
 import tomllib as toml
+from random import uniform as randf
+from math import sin, pi
 from pyengine.pgbasics import set_pyengine_hwaccel
 
 
@@ -30,6 +32,23 @@ class Window:
             vsync=self.vsync
         )
         self.display = pygame.display.get_surface()
+
+        x, y = self.screen_shake_function(3)
+    
+    def rand_sin(self):
+        amp = 1
+        freq = randf(1, 5)
+        return lambda x: amp * sin(freq * x)
+    
+    def screen_shake_function(self, degree):
+        def summed_sine(x):
+            result = 0
+            for _ in range(degree):
+                result += self.rand_sin()(x)
+            dropoff = (2 * pi - x) / (2 * pi)
+            return dropoff * result
+        
+        return (summed_sine, summed_sine)
 
 
 window = Window()

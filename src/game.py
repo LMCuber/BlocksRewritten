@@ -10,6 +10,7 @@ import pyengine.pgwidgets as pgw
 from src.entities import *
 from src.window import *
 from src.tools import *
+from src.midblit import Midblit
 from src import world
 from src import player
 from src import fonts
@@ -19,14 +20,14 @@ from src import menu
 
 class Game:
     def __init__(self):
-        # initialization stuff
-        self.widget_kwargs = {"font": fonts.orbitron[20], "anchor": "topleft"}
+        # rendering and frames
         self.clock = pygame.time.Clock()
         self.init_systems()
         self.shader = ModernglShader(
             Path("src", "shaders", "default.vert"),
             Path("src", "shaders", "default.frag")
         )
+        self.dead_zone = None
         # runtime objects
         self.world = world.World(menu)
         self.player = player.Player(self, self.world, menu)
@@ -35,10 +36,12 @@ class Game:
         self.last_start = ticks()
         self.state = States.PLAY
         self.substate = Substates.PLAY
+        self.disable_input = False
         # joystick
         self.joystick = joystick.JoystickManager()
-        #
-        self.sword = get_sword((120, 120, 120))
+        # UI / UX
+        self.sword = get_shihozume(300, (120, 120, 120), (90, 90, 90), (30, 30, 30))
+        self.midblit = Midblit(self, window)
         # menu stuff
         menu.quit.command = self.quit
     
@@ -72,18 +75,22 @@ class Game:
     def send_data_to_shader(self):
         # send textures to the shader
         self.shader.send_surf(0, "tex", window.display)
-        self.shader.send_surf(1, "paletteTex", blocks.palette_img)
+        # self.shader.send_surf(1, "lightmap", self.world.lightmap)
+        self.shader.send_surf(2, "paletteTex", blocks.palette_img)
 
         # send uniform data to the shader
         self.shader.send("pink", [c / 255 for c in PINK_RED[:3]])
         self.shader.send("time", ticks())
         # self.shader.send("centerWin", window.center)
         self.shader.send("res", (window.width, window.height))
-        self.shader.send("blurSigma", menu.blur.value)
         self.shader.send("palettize", menu.palettize.checked)
 
         w = 120
-        self.shader.send("deadZone", (0, 0, 0, 0))
+        if self.midblit.active and False:
+            self.dead_zone = self.midblit.rect
+        else:
+            self.dead_zone = (0, 0, 0, 0)
+        self.shader.send("deadZone", self.dead_zone)
         o = 0
         self.shader.send("rOffset", (-o, 0))
         self.shader.send("gOffset", (0, 0))
@@ -112,6 +119,7 @@ class Game:
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
+                self.midblit.process_event(event)
                 self.player.process_event(event)
 
                 if event.type == pygame.QUIT:
@@ -128,6 +136,9 @@ class Game:
                                 self.substate = Substates.PLAY
                                 for widget in menu.iter_widgets():
                                     widget.disable()
+                    
+                    elif event.type == pygame.K_SPACE:
+                        pass
                     
                     elif event.key == pygame.K_q:
                         self.running = False
@@ -153,7 +164,10 @@ class Game:
                 self.process_systems(processed_chunks)
 
                 # update the player
-                self.player.update(window.display, block_rects, dt)
+                self.player.update(window.display, dt)
+
+                # midblit
+                self.midblit.update()
 
             # update the pyengine.pgwidgets
             pgw.draw_and_update_widgets()
@@ -167,17 +181,16 @@ class Game:
             write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 80)
             write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 100)
 
-            # self.sword.update()
-            
-            # --- DO RENDERING BEFORE THIS BLOCK ---
+            # --- DO ALL RENDERING BEFORE THIS CODE BELOW ---
             self.send_data_to_shader()
 
             # render the shader
             self.shader.render()
 
-            # window.window.flip()
+            # refreshes the window so you can see it
             pygame.display.flip()
 
+            # you won't guess what this function does
             self.shader.release_all_textures()
 
         self.quit()

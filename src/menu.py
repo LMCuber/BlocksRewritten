@@ -17,13 +17,16 @@ slider_kwargs = {"height": 66}
 
 # the widget objects
 widgets = {
+    # "comboboxes": SmartList([
+        # pgw.ComboBox(window.display, "Palette", ["asd", "dsa"], **kwargs),
+    # ]),
     "checkboxes": SmartList([
         pgw.Checkbox(window.display, "Hitboxes", checked=True, **kwargs),
-        pgw.Checkbox(window.display, "Chunk Borders", checked=False, **kwargs),
+        pgw.Checkbox(window.display, "Collisions", checked=False, **kwargs),
+        pgw.Checkbox(window.display, "Chunk Borders", checked=True, **kwargs),
         pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs)
     ]),
     "sliders": SmartList([
-        pgw.Slider(window.display, "Blurring", [round(i * 0.1, 1) for i in range(101)], 0, **kwargs | slider_kwargs),
         pgw.Slider(window.display, "FPS Cap", [10, 30, 60, 144, 165, 250], 4, **kwargs | slider_kwargs),
     ]),
     "buttons": SmartList([
@@ -35,7 +38,6 @@ widgets = {
 hitboxes = widgets["checkboxes"].find(lambda x: x.text == "Hitboxes")
 chunk_borders = widgets["checkboxes"].find(lambda x: x.text == "Chunk Borders")
 palettize = widgets["checkboxes"].find(lambda x: x.text == "Palettize")
-blur = widgets["sliders"].find(lambda x: x.text == "Blurring")
 fps_cap = widgets["sliders"].find(lambda x: x.text == "FPS Cap")
 quit = widgets["buttons"].find(lambda x: x.text == "Quit")
 
