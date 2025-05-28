@@ -1,3 +1,6 @@
+[game]
+profile = false
+
 [window]
 width = 1080
 height = 720

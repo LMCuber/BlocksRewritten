@@ -24,10 +24,12 @@ widgets = {
         pgw.Checkbox(window.display, "Hitboxes", checked=True, **kwargs),
         pgw.Checkbox(window.display, "Collisions", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Chunk Borders", checked=True, **kwargs),
-        pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs)
+        pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs),
+        pgw.Checkbox(window.display, "Lighting", checked=True, **kwargs),
+        pgw.Checkbox(window.display, "Debug lighting", checked=False, **kwargs),
     ]),
     "sliders": SmartList([
-        pgw.Slider(window.display, "FPS Cap", [10, 30, 60, 144, 165, 250], 4, **kwargs | slider_kwargs),
+        pgw.Slider(window.display, "FPS Cap", [10, 30, 60, 144, 165, float("inf")], 4, **kwargs | slider_kwargs),
     ]),
     "buttons": SmartList([
         pgw.Button(window.display, "Quit", lambda: None, pos=(300, 396), **kwargs | button_kwargs),
@@ -38,6 +40,8 @@ widgets = {
 hitboxes = widgets["checkboxes"].find(lambda x: x.text == "Hitboxes")
 chunk_borders = widgets["checkboxes"].find(lambda x: x.text == "Chunk Borders")
 palettize = widgets["checkboxes"].find(lambda x: x.text == "Palettize")
+lighting = widgets["checkboxes"].find(lambda x: x.text == "Lighting")
+debug_lighting = widgets["checkboxes"].find(lambda x: x.text == "Debug lighting")
 fps_cap = widgets["sliders"].find(lambda x: x.text == "FPS Cap")
 quit = widgets["buttons"].find(lambda x: x.text == "Quit")
 

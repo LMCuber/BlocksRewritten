@@ -166,7 +166,7 @@ class Player:
             mouse = pygame.mouse.get_pos()
             mouses = pygame.mouse.get_pressed()
             chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
-            base, mods = self.world.bnorm(self.world.data[chunk_index].get(block_pos, ""))
+            base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, ""))
 
             if base == "dynamite":
                 # make dynamite explode
@@ -192,10 +192,10 @@ class Player:
                 if mouses[0]:
                     # check where the mouse wants to place a block and whether it's prohibited
                     chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
-                    base, mods = self.world.bnorm(self.world.data[chunk_index].get(block_pos, ""))
+                    base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, ""))
 
                     """
-                    base is "" (empty string literal) if it doesn't exist
+                    base is "" if it doesn't exist
                     """
 
                     # first decide what to do with the click depending on the block underneath
@@ -234,7 +234,7 @@ class Player:
                         if block_pos not in self.world.data[chunk_index]:
                             can_place = True
                         else:
-                            base, mods = self.world.bnorm(self.world.data[chunk_index][block_pos])
+                            base, mods = blocks.norm(self.world.data[chunk_index][block_pos])
                             if "b" in mods:
                                 can_place = True
                         if can_place:
@@ -309,7 +309,7 @@ class Player:
             if self.rect.colliderect(rect):
                 if self.yvel > 0:
                     self.rect.bottom = rect.top
-                    self.jumps_left = 2
+                    self.jumps_left = 1
                     self.in_air = False
                 else:
                     self.rect.top = rect.bottom

@@ -7,7 +7,6 @@ import yaml
 from pyengine.ecs import *
 from pyengine.pgbasics import *
 #
-from . import blocks
 from . import fonts
 from .engine import *
 

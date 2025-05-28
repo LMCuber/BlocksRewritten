@@ -1,5 +1,4 @@
 import pygame
-import tomllib as toml
 from pathlib import Path
 import sys
 #
@@ -7,8 +6,8 @@ from pyengine.pgshaders import *
 from pyengine.pgbasics import *
 import pyengine.pgwidgets as pgw
 #
-from src.entities import *
 from src.window import *
+from src.entities import *
 from src.tools import *
 from src.midblit import Midblit
 from src import world
@@ -19,7 +18,9 @@ from src import menu
 
 
 class Game:
-    def __init__(self):
+    def __init__(self, config):
+        # parse the config first
+        self.config = config
         # rendering and frames
         self.clock = pygame.time.Clock()
         self.init_systems()
@@ -174,12 +175,23 @@ class Game:
 
             # display the fps
             write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], BLACK, 5, 5)
+
+            # display important parameters
+            params = ""
+            if self.config["game"]["profile"]:
+                params += "profiled | "
             if window.vsync:
-                write(window.display, "topleft", "vsync", fonts.orbitron[10], BLACK, 5, 24)
-            write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], BLACK, 5, 40)
+                params += "vsync | "
+            params = params.removesuffix(" | ")
+            if params:
+                params = "— " + params
+                write(window.display, "topleft", params, fonts.orbitron[12], BLACK, 5, 30)
+
+            # display debugging / performance stats
+            write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], BLACK, 5, 70)
             # write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], BLACK, 5, 60)
-            write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 80)
-            write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 100)
+            write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 90)
+            write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 110)
 
             # --- DO ALL RENDERING BEFORE THIS CODE BELOW ---
             self.send_data_to_shader()

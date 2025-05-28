@@ -8939,10 +8939,10 @@ abnegation
 abnegations
 abnegator
 abnegators
-abnormalities
-abnormality
-abnormities
-abnormity
+ablocks.normalities
+ablocks.normality
+ablocks.normities
+ablocks.normity
 abode
 abodes
 aboideau
@@ -79918,9 +79918,9 @@ submolecule
 submucosa
 submultiple
 submultiples
-subnormal
-subnormality
-subnormals
+sublocks.normal
+sublocks.normality
+sublocks.normals
 suboffice
 subofficer
 subofficers

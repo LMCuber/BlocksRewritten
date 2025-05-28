@@ -6,6 +6,10 @@ from .engine import *
 from .window import *
 
 
+# C O N S T A N T S
+MAX_LIGHT = 10
+
+
 # F U N C T I O N S
 def darken(img, factor):
     darkened = img.copy()
@@ -21,12 +25,45 @@ def darken(img, factor):
 Block modifications:
     b - background block
 """
-def bwand(base: str, flag: BF):
-    return data[base] & flag
+def norm(name: str) -> tuple[str, list[str]]:
+    """
+    Returns the normalized version of a block name, devoid of all modifiers e.g. stone|b (background stone) -> stone
+    Normalized values are split by pipes.
+    Quick check to know whether a fragmentation should be a norm or pure: if it has its own image and data, its a norm (e.g. tree_f has an image but tree_f|b does not)
+    """
+    spl = name.split("|")
+    base: str = spl[0]
+    mods: list[str] = spl[1:]
+    return base, mods
 
 
-def nbwand(base: str, flag: BF):
-    return not (data[base] & flag)
+def pure(name: str) -> tuple[str, list[str], str, list[str]]:
+    """
+    Returns the pure version, as well as the normalized version, of a block, which is its most important part. This is to make sure that for e.g. tree_f and tree_p don't get differentiated.
+    Pure values are split by underscores.
+    """
+    base, mods = norm(name)
+    spl = base.split("_")
+    pure = spl[0]
+    vers = spl[1:]
+    return pure, spl, base, mods
+
+
+def bwand(name: str, flag: BF):
+    return get_data(name) & flag
+
+
+def nbwand(name: str, flag: BF):
+    return not (get_data(name) & flag)
+
+
+def get_data(name):
+    pur, spl, base, mods = pure(name)
+    # special cases
+    if pur == "dirt" and "b" in mods:
+        return BF.LIGHT_SOURCE
+    # default case (get from dictionary)
+    return data[name]
 
 
 class BF(IntFlag):
@@ -42,11 +79,13 @@ class BF(IntFlag):
     UTIL = auto()
     GEAR = auto()
     NONSQUARE = auto()
+    LIGHT_SOURCE = auto()
+    EMPTY = auto()
 
     
 data = defaultdict(lambda: BF.NONE, {
     "sand": BF.ORGANIC,
-    "dynamite": BF.UTIL,
+    "dynamite": BF.UTIL | BF.LIGHT_SOURCE,
     "lotus": BF.ORGANIC,
     "bed": BF.UTIL,
     "bed-right": BF.UTIL,
@@ -54,8 +93,18 @@ data = defaultdict(lambda: BF.NONE, {
     "rope": BF.WALKABLE,
     "karabiner": BF.WALKABLE,
     "workbench": BF.WALKABLE,
+    "air": BF.EMPTY | BF.LIGHT_SOURCE,
+    "dirt_f|b": BF.EMPTY,
+    "stone|b": BF.EMPTY,
 })
 
+params = {
+    "air": {"light": MAX_LIGHT},
+    "dynamite": {"light": MAX_LIGHT},
+    "dirt_f|b": {"light": MAX_LIGHT},
+}
+
+# B L O C K  G R O U P S
 pillars = [f"pillar_vr{i}" for i in range(4)]
 
 # B L O C K  A S S E T S
@@ -84,9 +133,6 @@ for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
         images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
         images[f"{block}|b"] = darken(images[block], 0.7)
-        # images[f"{block}|B"] = darken(images[block], 0.85)
 
 breaking_sprs = imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
 inventory_img = imgload("res", "images", "visuals", "inventory.png", scale=S)
-
-MAX_LIGHTING = 10
