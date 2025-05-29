@@ -20,7 +20,6 @@ def darken(img, factor):
     return darkened
 
 
-# B L O C K  A T T R I B U T E S
 """
 Block modifications:
     b - background block
@@ -66,6 +65,19 @@ def get_data(name):
     return data[name]
 
 
+# C L A S S E S
+class _Suffix(str):
+    def __ror__(self, other):
+        base, mods = norm(other)
+        if self in mods:
+            return other
+        return f"{base}|b"
+
+
+class X:
+    b = _Suffix("b")
+
+
 class BF(IntFlag):
     """
     BF = BlockFlags
@@ -81,6 +93,7 @@ class BF(IntFlag):
     NONSQUARE = auto()
     LIGHT_SOURCE = auto()
     EMPTY = auto()
+    UNBREAKABLE = auto()
 
     
 data = defaultdict(lambda: BF.NONE, {
@@ -94,8 +107,9 @@ data = defaultdict(lambda: BF.NONE, {
     "karabiner": BF.WALKABLE,
     "workbench": BF.WALKABLE,
     "air": BF.EMPTY | BF.LIGHT_SOURCE,
-    "dirt_f|b": BF.EMPTY,
-    "stone|b": BF.EMPTY,
+    "dirt_f" | X.b: BF.EMPTY,
+    "stone" | X.b: BF.EMPTY,
+    "blackstone": BF.UNBREAKABLE,
 })
 
 params = {
@@ -132,7 +146,7 @@ _spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
 for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
         images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
-        images[f"{block}|b"] = darken(images[block], 0.7)
+        images[block | X.b] = darken(images[block], 0.7)
 
 breaking_sprs = imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
 inventory_img = imgload("res", "images", "visuals", "inventory.png", scale=S)

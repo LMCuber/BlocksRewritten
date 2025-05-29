@@ -10,7 +10,7 @@ from .engine import *
 from .window import *
 from .entities import *
 from .blocks import (
-    BF, bwand, nbwand, MAX_LIGHT
+    BF, bwand, nbwand, MAX_LIGHT, X
 )
 from . import fonts
 from . import blocks
@@ -58,7 +58,8 @@ class World:
         # block lighting
         self.lightmap = {}
         self.light_surfaces = {}
-        self.light_contrib = {}
+        self.light_to_contrib = {}
+        self.contrib_to_light = {}
 
         # world interactive stuff
         self.breaking = Breaking()
@@ -101,9 +102,15 @@ class World:
     def break_(self, chunk_index, block_pos):
         """
         Abstract break does 1 thing:
+        - Check whether block is breakable (blackstone is not)
         - Check whether the background block is air or can be fetched from bg_data
         """
-        _, mods = blocks.norm(self.data[chunk_index][block_pos])
+
+        base, mods = blocks.norm(self.data[chunk_index][block_pos])
+
+        if bwand(base, BF.UNBREAKABLE):
+            return
+        
         if "b" not in mods:
             if block_pos in self.bg_data[chunk_index]:
                 self.set(chunk_index, block_pos, self.bg_data[chunk_index][block_pos])
@@ -283,7 +290,7 @@ class World:
                     elif biome == Biome.BEACH:
                         # rock
                         if _chance(1 / 15):
-                            _set("rock|b", (block_x, block_y - 1))
+                            _set("rock" | X.b, (block_x, block_y - 1))
 
                         # beach tree
                         if _chance(1 / 24):
@@ -320,12 +327,14 @@ class World:
                 del self.data[chunk_index][block_pos]
         else:
             self.data[chunk_index][block_pos] = name
-        
+
         if bwand(name, BF.EMPTY):
-            if (chunk_index, block_pos) in self.light_contrib:
-                print("--"*100)
-                for (con_chunk_index, con_block_pos), contrib in self.light_contrib[(chunk_index, block_pos)].items():
-                    self.update_lightmap(con_chunk_index, con_block_pos, contrib, decrease=True)
+            if (chunk_index, block_pos) in self.light_to_contrib:
+                # iterate through all blocks this light source has contributed towards
+                for (con_chunk_index, con_block_pos) in self.light_to_contrib[(chunk_index, block_pos)]:
+                    print((con_chunk_index, con_block_pos), (chunk_index, block_pos))
+                    contribution = self.contrib_to_light[(con_chunk_index, con_block_pos)][(chunk_index, block_pos)]
+                    self.update_lightmap(con_chunk_index, con_block_pos, contribution, decrease=True)
 
         # update lightmap when a light source is placed
         if bwand(name, BF.LIGHT_SOURCE):
@@ -343,7 +352,7 @@ class World:
         if chunk_index not in self.lightmap:
             self.lightmap[chunk_index] = {}
             self.light_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
-            self.light_contrib[chunk_index] = {}
+            self.light_to_contrib[chunk_index] = {}
     
     def create_chunk(self, chunk_index):
         # initialize new chunk data in the world datae
@@ -368,36 +377,41 @@ class World:
                 if chunk_y < 0:
                     # SKY
                     name = "air"
+
                 elif chunk_y == 0:
                     # GROUND LEVEL
                     if rel_y == offset:
                         # top block in a biome
                         name = bio.blocks[biome][0]
                         if name == "soil_f":
-                            self.bg_data[chunk_index][(block_x, block_y)] = f"dirt_f|b"
+                            self.bg_data[chunk_index][(block_x, block_y)] = "dirt_f" | X.b
                         else:
-                            self.bg_data[chunk_index][(block_x, block_y)] = f"{name}|b"
+                            self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
                     elif rel_y < offset:
                         # air
                         name = "air"
                     else:
                         # underground blocks
                         name = bio.blocks[biome][1]
-                        self.bg_data[chunk_index][(block_x, block_y)] = f"{name}|b"
+                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+
                 elif chunk_y == 1:
                     # DIRT-CAVE HYBRID
                     if rel_y <= offset:
                         name = bio.blocks[biome][1]
-                        self.bg_data[chunk_index][(block_x, block_y)] = f"{name}|b"
+                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
                     else:
                         name = "stone"
-                        self.bg_data[chunk_index][(block_x, block_y)] = f"{name}|b"
-                    
-                    base, mods = blocks.norm(name)
-                else:
+                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+
+                elif chunk_y < 20:
                     # UNDERGROUND
-                    name = "stone|b" if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.46 else "stone"
-                    self.bg_data[chunk_index][(block_x, block_y)] = f"{name}|b"
+                    name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.46 else "stone"
+                    self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+                
+                else:
+                    # DEPTH LIMIT
+                    name = "blackstone"
 
                 self.set(chunk_index, (block_x, block_y), name, propagate_light=False)
 
@@ -423,9 +437,12 @@ class World:
         # work through the queue
         while queue:
             chunk_index, block_pos, desired_light = queue.popleft()
+
+            # the current block is a light source
             if (chunk_index, block_pos) in light_sources:
                 current_source = (chunk_index, block_pos)
-                self.light_contrib[current_source] = {current_source: desired_light}
+                self.light_to_contrib[current_source] = {current_source}
+                self.contrib_to_light[current_source] = {current_source: desired_light}
 
             for (xo, yo) in offsets:
                 new_chunk_index, new_block_pos = self.correct_tile(chunk_index, block_pos, xo, yo)
@@ -447,16 +464,22 @@ class World:
                     queue.append((new_chunk_index, new_block_pos, new_light))
 
     def update_lightmap(self, chunk_index, block_pos, light, src_key=None, decrease=False):
-        # add this block to the contributions of the src_key
+        # add this block to the contributions of the src_key and reverse
         if src_key is not None:
-            if src_key[0] in self.data and src_key[1] in self.data[src_key[0]] and self.data[src_key[0]][src_key[1]] == "dynamite":
-                dest_key = (chunk_index, block_pos)
-                if src_key not in self.light_contrib:
-                    self.light_contrib[src_key] = {}
+            # save light -> contribs
+            con_key = (chunk_index, block_pos)
+            if src_key not in self.light_to_contrib:
+                self.light_to_contrib[src_key] = set()
+            self.light_to_contrib[src_key].add(con_key)
 
-                cur_light = self.lightmap[chunk_index][block_pos]
-                contribution = light - cur_light
-                self.light_contrib[src_key][dest_key] = contribution
+            # save contrib -> lights
+            cur_light = self.lightmap[chunk_index][block_pos]
+            contribution = light - cur_light  # e.g. it was 3 but lit up to 7 so contribution is +4
+
+            if con_key not in self.contrib_to_light:
+                self.contrib_to_light[con_key] = {src_key: contribution}
+            else:
+                self.contrib_to_light[con_key][src_key] = contribution
 
         # update the map itself
         if decrease:
@@ -510,7 +533,7 @@ class World:
                     # process block modifications
                     base, mods = blocks.norm(name)
                     if "b" in mods:
-                        image = blocks.images[f"{base}|b"]
+                        image = blocks.images[base | X.b]
                     else:
                         image = blocks.images[base]
 
@@ -528,9 +551,12 @@ class World:
                 # debug lights
                 if self.menu.debug_lighting:
                     for block_pos, name in self.lightmap[chunk_index].items():
+                        key = (chunk_index, block_pos)
                         block_x, block_y = block_pos
                         blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
-                        write(window.display, "center", self.lightmap[chunk_index][block_pos], fonts.orbitron[12], pygame.Color("orange"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
+                        write(window.display, "center", self.lightmap[chunk_index][block_pos], fonts.orbitron[12], pygame.Color("pink"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
+                        if key in self.contrib_to_light:
+                            write(window.display, "center", list(self.contrib_to_light[key].values())[0], fonts.orbitron[12], pygame.Color("yellow"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
 
                 if self.menu.chunk_borders.checked:
                     pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
