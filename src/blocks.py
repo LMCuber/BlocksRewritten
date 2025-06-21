@@ -58,9 +58,6 @@ def nbwand(name: str, flag: BF):
 
 def get_data(name):
     pur, spl, base, mods = pure(name)
-    # special cases
-    if pur == "dirt" and "b" in mods:
-        return BF.LIGHT_SOURCE
     # default case (get from dictionary)
     return data[name]
 
@@ -95,6 +92,7 @@ class BF(IntFlag):
     EMPTY = auto()
     UNBREAKABLE = auto()
 
+
     
 data = defaultdict(lambda: BF.NONE, {
     "sand": BF.ORGANIC,
@@ -106,8 +104,8 @@ data = defaultdict(lambda: BF.NONE, {
     "rope": BF.WALKABLE,
     "karabiner": BF.WALKABLE,
     "workbench": BF.WALKABLE,
-    "air": BF.EMPTY | BF.LIGHT_SOURCE,
-    "dirt_f" | X.b: BF.EMPTY,
+    "air": BF.EMPTY | BF.WALKABLE | BF.LIGHT_SOURCE | BF.UNBREAKABLE,
+    "dirt_f" | X.b: BF.EMPTY | BF.LIGHT_SOURCE,
     "stone" | X.b: BF.EMPTY,
     "blackstone": BF.UNBREAKABLE,
 })
@@ -115,7 +113,7 @@ data = defaultdict(lambda: BF.NONE, {
 params = {
     "air": {"light": MAX_LIGHT},
     "dynamite": {"light": MAX_LIGHT},
-    "dirt_f|b": {"light": MAX_LIGHT},
+    "dirt_f" | X.b: {"light": MAX_LIGHT - 1}
 }
 
 # B L O C K  G R O U P S

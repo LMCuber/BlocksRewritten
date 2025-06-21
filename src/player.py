@@ -6,7 +6,7 @@ from pyengine.ecs import *
 from .engine import *
 from .entities import *
 from .window import window
-from .blocks import BF, inventory_img
+from .blocks import BF, inventory_img, bwand
 from .midblit import MBT
 from .tools import *
 
@@ -192,16 +192,12 @@ class Player:
                 if mouses[0]:
                     # check where the mouse wants to place a block and whether it's prohibited
                     chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
-                    base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, ""))
-
-                    """
-                    base is "" if it doesn't exist
-                    """
+                    base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, "air"))
 
                     # first decide what to do with the click depending on the block underneath
                     if self.action == Action.NONE:
                         # decide whether the first block you click on should be broken, edited, created on, etc.
-                        if base == "" or "b" in mods:
+                        if bwand(base, BF.EMPTY) or "b" in mods:
                             # the block should be placed
                             self.action = Action.PLACE
                         else:
@@ -210,7 +206,7 @@ class Player:
 
                     # break the block
                     if self.action == Action.BREAK:
-                        for xo, yo in product(range(-1, 2), repeat=2):
+                        for xo, yo in product(range(0, 1), repeat=2):
                             new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
                             if new_block_pos in self.world.data[new_chunk_index]:
                                 self.world.break_(new_chunk_index, new_block_pos)
@@ -231,7 +227,7 @@ class Player:
                     elif self.action == Action.PLACE:
                         # check if block is not there or a background block
                         can_place = False
-                        if block_pos not in self.world.data[chunk_index]:
+                        if bwand(self.world.data[chunk_index].get(block_pos, "air"), BF.EMPTY):
                             can_place = True
                         else:
                             base, mods = blocks.norm(self.world.data[chunk_index][block_pos])

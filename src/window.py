@@ -10,7 +10,7 @@ pygame.init()
 
 
 class Window:
-    def create_window(self, width, height, vsync, fps_cap):
+    def create_window(self, width, height, fullscreen, vsync, fps_cap):
         # set PyEngine hwaccel flag
         set_pyengine_hwaccel(False)
         # pygame window and OpenGL flags
@@ -23,6 +23,10 @@ class Window:
         # window parameters
         self.width = width
         self.height = height
+        self.fullscreen = fullscreen
+        if self.fullscreen:
+            self.width = pygame.display.Info().current_w
+            self.height = pygame.display.Info().current_h
         self.size = (self.width, self.height)
         self.vsync = vsync
         self.fps_cap = fps_cap

@@ -4,10 +4,10 @@ from pygame.transform import scale, scale_by
 from random import randint as rand
 from random import uniform as randf
 from random import choice
-from math import sin, log as ln
 from enum import Enum, IntFlag, auto
 from dataclasses import dataclass
-from math import floor, ceil, log10
+from math import sin, floor, ceil, log10
+from math import log as ln
 import time
 
 
@@ -15,6 +15,8 @@ CW = 16
 CH = 16
 S = 3
 BS = 10 * S
+
+Pos = tuple[int, int]
 
 
 # CONTEXT MANAGERS
@@ -28,6 +30,10 @@ class Profile:
 
 
 # FUNCTIONS
+def clamp(n, min_, max_):
+    return min(max(n, min_), max_)
+
+
 def sigfigs(x, n):
     if x == 0:
         return 0

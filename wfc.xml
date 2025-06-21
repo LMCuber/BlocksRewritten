@@ -1,3 +1,0 @@
-<sequence values="BW" origin="False">
-    <wfc sample="City.png" n="3" recursion-limit="100000" max-depth="6"></wfc>
-</sequence>

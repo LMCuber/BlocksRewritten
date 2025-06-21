@@ -1,8 +1,9 @@
 [game]
-profile = false
+profile = true
 
 [window]
 width = 1080
 height = 720
+fullscreen = false
 fps_cap = 144
 vsync = false
