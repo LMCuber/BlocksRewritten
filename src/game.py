@@ -41,7 +41,8 @@ class Game:
         # joystick
         self.joystick = joystick.JoystickManager()
         # UI / UX
-        self.sword = get_shihozume(300, (120, 120, 120), (90, 90, 90), (30, 30, 30))
+        # self.sword = get_shihozume(300, (120, 120, 120), (90, 90, 90), (30, 30, 30))
+        self.sword = get_cube((255, 190, 200))
         self.midblit = Midblit(self, window)
         # menu stuff
         menu.quit.command = self.quit

@@ -64,7 +64,7 @@ def get_crystal(type_, color=None):
 
 
 def get_cube(base_color):
-    poly = Crystal(window.display, "cube.obj", [], [], [], (940, 300), 140, 1, 0.2, 0.2, 0.3, 0.01, 0.01, 0.01, normalize=True, normals=True)
+    poly = Crystal(window.display, "caduceus.obj", [], [], [], (400, 400), 400, 1, 0, 0, 0, 0, 0, 0, normalize=True, normals=False)
     return poly
 
 

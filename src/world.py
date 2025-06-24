@@ -57,10 +57,10 @@ class World:
         self.chunk_colors = {}
 
         # block lighting
-        self.lightmap:           dict[Pos, dict[Pos, int]]                   = {} # light data
-        self.light_surfaces:     dict[Pos, dict[Pos, pygame.Surface]]        = {} # light textures
-        self.source_to_children: dict[tuple[Pos, Pos], set[tuple[Pos, Pos]]] = {} # saves all blocks that have been affected by a light source
-        self.light_sources:      dict[Pos, dict[Pos, bool]]                  = {} # keeps track of light sources to repropagate when needed
+        self.lightmap:           dict[Pos, dict[Pos, int]]                        = {} # light data
+        self.light_surfaces:     dict[Pos, dict[Pos, pygame.Surface]]             = {} # light textures
+        self.source_to_children: dict[dict[Pos, dict[Pos, set[tuple[Pos, Pos]]]]] = {} # saves all blocks that have been affected by a light source
+        self.light_sources:      dict[Pos, dict[Pos, bool]]                       = {} # keeps track of light sources to repropagate when needed
 
         # world interactive stuff
         self.breaking = Breaking()
@@ -90,7 +90,7 @@ class World:
         for dx in range(-radius, radius + 1):
             for dy in range(-radius, radius + 1):
                 dist_sq = dx ** 2 + dy ** 2
-                if dist_sq <= r ** 2:
+                if dist_sq <= radius ** 2:
                     offsets.append((dist_sq, dx, dy))
         
         offsets.sort()
@@ -330,15 +330,39 @@ class World:
             # deleting a light source (depropagate)
             if bwand(name, BF.EMPTY) and bwand(cur, BF.LIGHT_SOURCE):
                 if chunk_index in self.light_sources and self.light_sources[chunk_index].get(block_pos, False):
-                    for child_key in self.source_to_children[(chunk_index, block_pos)]:
-                        print(child_key)
-                        for other_light_pos in self.light_sources[child_key[0]][child_key[1]].keys():
-                            self.update_lightmap(*child_key, 0)
+                    # clear all lights form the deleted light block
+                    for child_key in self.source_to_children[chunk_index][block_pos]:
+                        self.update_lightmap(*child_key, 0)
                     
-                    # for child_key in self.source_to_children[(chunk_index, block_pos)]:
-                    #     for other_light_pos in self.light_sources[chunk_index].keys():
-                    #         self.propagate_light(chunk_index, other_light_pos)
+                    # clear all lights from all other lights (except for the deleted light of source)
+                    # clearing first is needed because of the early returns in the light floodfill
+ 
+                    # repropagate all other lights from adjacent chunks
+                    for yo in range(-1, 2):
+                        for xo in range(-1, 2):
+                            other_chunk_index = (chunk_index[0] + xo, chunk_index[1] + yo)
 
+                            # create chunk if it doesn't exist yet
+                            if other_chunk_index not in self.data:
+                                self.create_chunk(other_chunk_index)
+                            
+                            for other_children in self.source_to_children[other_chunk_index].values():
+                                for other_child_key in other_children:
+                                    self.update_lightmap(*other_child_key, 0)
+
+                    for yo in range(-1, 2):
+                        for xo in range(-1, 2):
+                            other_chunk_index = (chunk_index[0] + xo, chunk_index[1] + yo)
+
+                            # for all lights sources of the adjacent chunk, propagate it
+                            for other_light_pos in self.source_to_children[other_chunk_index].keys():
+                                # save as key
+                                other_light_key = (other_chunk_index, other_light_pos)
+                                # skip the justly deleted light
+                                if other_light_key == (chunk_index, block_pos):
+                                    continue
+                                self.propagate_light(*other_light_key)
+                 
         self.data[chunk_index][block_pos] = name
 
         if bwand(name, BF.LIGHT_SOURCE):
@@ -370,6 +394,7 @@ class World:
         if chunk_index not in self.lightmap:
             self.lightmap[chunk_index] = {}
             self.light_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
+            self.source_to_children[chunk_index] = {}
     
     def create_chunk(self, chunk_index):
         # initialize new chunk data in the world datae
@@ -461,7 +486,9 @@ class World:
             # check if the current block is a light source
             if (chunk_index, block_pos) in light_sources:
                 current_source = (chunk_index, block_pos)
-                self.source_to_children[current_source] = {current_source}
+                if current_source[0] not in self.source_to_children:
+                    self.source_to_children[current_source[0]] = {}
+                self.source_to_children[current_source[0]][current_source[1]] = {current_source}
 
             for (xo, yo) in offsets:
                 new_chunk_index, new_block_pos = self.correct_tile(chunk_index, block_pos, xo, yo)
@@ -483,7 +510,7 @@ class World:
         # add this block to the contributions (children) of the src_key
         if src_key is not None:
             child_key = (chunk_index, block_pos)
-            self.source_to_children[src_key].add(child_key)
+            self.source_to_children[src_key[0]][src_key[1]].add(child_key)
 
         # if block_pos not in self.lightmap[chunk_index]:
         #     self.lightmap[chunk_index][block_pos] = 0

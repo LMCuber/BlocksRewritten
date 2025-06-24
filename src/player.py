@@ -39,6 +39,9 @@ class Inventory:
         self.keys: list[str] = []
         self.values: list[int] = []
     
+    def __getitem__(self, key):
+        return self.keys[key]
+    
     def add(self, item, amount=1):
         if item in self.keys:
             # already in inventory
@@ -234,7 +237,7 @@ class Player:
                             if "b" in mods:
                                 can_place = True
                         if can_place:
-                            placed_name = "dynamite"
+                            placed_name = self.inventory[0]
                             self.world.set(chunk_index, block_pos, placed_name)
                             self.process_placed_block(chunk_index, block_pos, placed_name)
                         
