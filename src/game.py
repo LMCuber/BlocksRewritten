@@ -175,7 +175,7 @@ class Game:
             pgw.draw_and_update_widgets()
 
             # display the fps
-            write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], BLACK, 5, 5)
+            write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], BLACK if self.scroll[1] < 220 else WHITE, 5, 5)
 
             # display important parameters
             params = ""

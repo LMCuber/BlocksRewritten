@@ -238,7 +238,6 @@ class World:
         for rel_y in range(CH):
             for rel_x in range(CW):
                 # init
-                blit_x, blit_y = rel_x * BS, rel_y * BS
                 block_pos = block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
                 name = og_name = self.data[chunk_index].get(block_pos, None)
 
@@ -304,6 +303,24 @@ class World:
                             _set("leaf_f", (wood_x - 1, wood_y))
                             _set("leaf_f", (wood_x, wood_y - 1))
                             _set("leaf_f", (wood_x + 1, wood_y))
+                
+                # populate the ore veins
+                if (
+                    name == "base-ore"
+                    and _get((block_x, block_y - 1)) != "base-ore"
+                    and _get((block_x + 1, block_y)) != "base-ore"
+                    and _get((block_x, block_y + 1)) != "base-ore"
+                    and _get((block_x - 1, block_y)) != "base-ore"
+                ):
+                    ore_x, ore_y = block_x, block_y
+                    for _ in range(_nordis(blocks.ores.veins["base-ore"], 3)):
+                        direc = _rand(0, 3)
+                        if direc == 0: ore_x += 1
+                        elif direc == 1: ore_x -= 1
+                        elif direc == 2: ore_y += 1
+                        elif direc == 3: ore_y -= 1
+                        if _get((ore_x, ore_y)) == "stone":
+                            _set("base-ore", (ore_x, ore_y))
 
                 # update chunk data and blit block image
                 if name != og_name:
@@ -321,13 +338,11 @@ class World:
         - modify the lighting
         - propagate the lighting
         """
-        
-        # save the current block
         if block_pos in self.data[chunk_index]:
             cur = self.data[chunk_index][block_pos]
 
             # deleting a light source (depropagate)
-            if bwand(name, BF.EMPTY) and bwand(cur, BF.LIGHT_SOURCE):
+            if bwand(cur, BF.LIGHT_SOURCE):
                 if chunk_index in self.source_to_children and self.source_to_children[chunk_index].get(block_pos, False):
                     light_shares: dict[tuple[Pos, Pos], int] = {}
 
@@ -344,7 +359,7 @@ class World:
                                         nei_light_name = self.data[nei_chunk_index][nei_light_block_pos]
                                         light_power = blocks.params[nei_light_name]["light"]
                                         dist = abs(nei_light_block_pos[0] - child_block_pos[0]) + abs(nei_light_block_pos[1] - child_block_pos[1])
-                                        light_value_from_other_source = light_power - dist
+                                        light_value_from_other_source = light_power - dist * blocks.params[nei_light_name].get("light_falloff", 1)
                                         light_shares[(nei_chunk_index, nei_light_block_pos)] = light_value_from_other_source
                         
                         # check if there are light sources in the vicinity
@@ -408,7 +423,6 @@ class World:
         for rel_y in range(CH):
             for rel_x in range(CW):
                 # init variables
-                blit_x, blit_y = rel_x * BS, rel_y * BS
                 block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
 
                 # chunks 0 and 1 need 1D noise for terrain height
@@ -442,22 +456,26 @@ class World:
                         name = bio.blocks[biome][1]
                         self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
                     else:
-                        name = "stone"
+                        name = self.get_ore(block_y)
                         self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
 
                 elif chunk_y < 20:
                     # UNDERGROUND
-                    name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.46 else "stone"
+                    name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.46 else self.get_ore(block_y)
                     self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
-                
                 else:
                     # DEPTH LIMIT
                     name = "blackstone"
 
                 self.set(chunk_index, (block_x, block_y), name, propagate_light=False)
 
-        # self.modify_chunk(chunk_index)
+        self.modify_chunk(chunk_index)
         self.propagate_light(chunk_index)
+    
+    def get_ore(self, depth):
+        if self.random.randint(0, 100) == 0:
+            return "base-ore"
+        return "stone"
     
     def propagate_light(self, chunk_index, block_pos=None):
         # initialize data structures
@@ -493,7 +511,7 @@ class World:
 
             for (xo, yo) in offsets:
                 new_chunk_index, new_block_pos = self.correct_tile(chunk_index, block_pos, xo, yo)
-                new_light = desired_light - 1
+                new_light = desired_light - blocks.params[self.data[current_source[0]][current_source[1]]].get("light_falloff", 1)
 
                 # make sure that the lighting data (lightmap and -surface) of neighboring chunk is initialized
                 self.init_light(new_chunk_index)
@@ -577,7 +595,7 @@ class World:
                 if self.menu.lighting:
                     display.blit(self.light_surfaces[chunk_index], chunk_rect)
 
-                # debug lights
+                # debug stuff per block
                 if self.menu.debug_lighting:
                     for block_pos, name in self.lightmap[chunk_index].items():
                         key = (chunk_index, block_pos)
@@ -588,6 +606,7 @@ class World:
                 if self.menu.chunk_borders.checked:
                     pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
                     write(display, "center", chunk_index, fonts.orbitron[20], WHITE, *chunk_rect.center)
+                    write(display, "center", (chunk_index[0] * CW, chunk_index[1] * CH), fonts.orbitron[12], WHITE, chunk_rect.centerx, chunk_rect.centery + 30)
 
                 processed_chunks.append(chunk_index)
 

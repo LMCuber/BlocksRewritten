@@ -7,7 +7,7 @@ from .window import *
 
 
 # C O N S T A N T S
-MAX_LIGHT = 10
+MAX_LIGHT = 15
 
 
 # F U N C T I O N S
@@ -18,6 +18,25 @@ def darken(img, factor):
     dark_overlay.fill((0, 0, 0, alpha))
     darkened.blit(dark_overlay, (0, 0))
     return darkened
+
+
+def color_diff(c1, c2):
+    return sqrt((c1[0] - c2[0]) ** 2 + (c1[1] - c2[1]) ** 2 + (c1[2] - c2[2]) ** 2)
+
+
+def palettize_img(img, palette):
+    ret_img = img.copy()
+    palette_colors = [palette.get_at((x, 0)) for x in range(palette.width)]
+    for y in range(img.height):
+        for x in range(img.width):
+            cur = img.get_at((x, y))
+            closest: list[pygame.Color, int] = []
+            for color in palette_colors:
+                dist = color_diff(cur, color)
+                if not closest or dist < closest[1]:
+                    closest = [color, dist]
+            ret_img.set_at((x, y), closest[0])
+    return ret_img
 
 
 """
@@ -93,10 +112,19 @@ class BF(IntFlag):
     UNBREAKABLE = auto()
 
 
+class OreData:
+    def __init__(self):
+        self.veins = {
+            "base-ore": 4
+        }
+
+
+ores = OreData()
+
     
 data = defaultdict(lambda: BF.NONE, {
     "sand": BF.ORGANIC,
-    "dynamite": BF.UTIL | BF.LIGHT_SOURCE,
+    "dynamite": BF.UTIL,
     "lotus": BF.ORGANIC,
     "bed": BF.UTIL,
     "bed-right": BF.UTIL,
@@ -108,11 +136,12 @@ data = defaultdict(lambda: BF.NONE, {
     "dirt_f" | X.b: BF.EMPTY | BF.LIGHT_SOURCE,
     "stone" | X.b: BF.EMPTY,
     "blackstone": BF.UNBREAKABLE,
+    "torch": BF.LIGHT_SOURCE | BF.WALKABLE,
 })
 
 params = {
     "air": {"light": MAX_LIGHT},
-    "dynamite": {"light": MAX_LIGHT},
+    "torch": {"light": MAX_LIGHT, "light_falloff": 1},
     "dirt_f" | X.b: {"light": MAX_LIGHT - 1}
 }
 
@@ -145,6 +174,8 @@ for y, layer in enumerate(block_list):
     for x, block in enumerate(layer):
         images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
         images[block | X.b] = darken(images[block], 0.7)
+
+# pygame.image.save(palettize_img(_spritesheet, palette_img), "pqweqwe.png")
 
 breaking_sprs = imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
 inventory_img = imgload("res", "images", "visuals", "inventory.png", scale=S)

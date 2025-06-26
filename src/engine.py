@@ -6,7 +6,7 @@ from random import uniform as randf
 from random import choice
 from enum import Enum, IntFlag, auto
 from dataclasses import dataclass
-from math import sin, floor, ceil, log10
+from math import sin, floor, ceil, log10, sqrt
 from math import log as ln
 import time
 
