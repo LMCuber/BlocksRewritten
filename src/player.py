@@ -209,7 +209,7 @@ class Player:
 
                     # break the block
                     if self.action == Action.BREAK:
-                        for xo, yo in product(range(-1, 2), repeat=2):
+                        for xo, yo in product(range(0, 1), repeat=2):
                             new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
                             if new_block_pos in self.world.data[new_chunk_index]:
                                 self.world.break_(new_chunk_index, new_block_pos)

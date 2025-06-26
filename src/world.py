@@ -341,61 +341,29 @@ class World:
                                 
                                 for nei_light_block_pos in self.source_to_children[nei_chunk_index]:
                                     if (nei_chunk_index, nei_light_block_pos) != (chunk_index, block_pos):
+                                        nei_light_name = self.data[nei_chunk_index][nei_light_block_pos]
+                                        light_power = blocks.params[nei_light_name]["light"]
                                         dist = abs(nei_light_block_pos[0] - child_block_pos[0]) + abs(nei_light_block_pos[1] - child_block_pos[1])
-                                        light_value = MAX_LIGHT - dist
-                                        light_shares[(nei_chunk_index, nei_light_block_pos)] = light_value
+                                        light_value_from_other_source = light_power - dist
+                                        light_shares[(nei_chunk_index, nei_light_block_pos)] = light_value_from_other_source
                         
-                        # save the source that illuminates the given block the most
+                        # check if there are light sources in the vicinity
                         if light_shares:
+                            # save the source that illuminates the given block the most
                             max_light_key = max(light_shares, key=light_shares.get)
                             max_light_value = light_shares[max_light_key]
-                            self.update_lightmap(child_chunk_index, child_block_pos, max_light_value)
-
-                            # transfer this child the other light source's child, because it has taken over it
-                            self.source_to_children[max_light_key[0]][max_light_key[1]].add((child_chunk_index, child_block_pos))
+                            if max_light_value > 0:
+                                self.update_lightmap(child_chunk_index, child_block_pos, max_light_value)
+                                # transfer this child the other light source's child, because it has taken over it
+                                self.source_to_children[max_light_key[0]][max_light_key[1]].add((child_chunk_index, child_block_pos))
+                            else:
+                                self.update_lightmap(child_chunk_index, child_block_pos, 0)
                         else:
-                            # the block isn't shared by any other light sources, so it just becomes black
+                            # the block can't possibly be shared by any other light sources, so it just becomes black
                             self.update_lightmap(child_chunk_index, child_block_pos, 0)
 
                     del self.source_to_children[chunk_index][block_pos]
                     propagate_light = False
-                                    
-                    # clear all lights from all other lights (except for the deleted light of source)
-                    # clearing first is needed because of the early returns in the light floodfill
-
-                    # reprop_light_keys: list[tuple[Pos, Pos]] = []
-
-                    # repropagate all other lights from adjacent chunks
-                    # for yo in range(-1, 2):
-                    #     for xo in range(-1, 2): 
-                    #         nei_chunk_index = (chunk_index[0] + xo, chunk_index[1] + yo)
-
-                    #         # create the chunk data already if it doesn't exist yet
-                    #         if nei_chunk_index not in self.data:
-                    #             self.create_chunk(nei_chunk_index)
-                            
-                    #         # clear all children of all light sources
-                    #         for nei_light_block_pos, nei_children in self.source_to_children[nei_chunk_index].items():
-                    #             dist = abs(nei_light_block_pos[0] - block_pos[0]) + abs(nei_light_block_pos[1] - block_pos[1])
-                                
-                    #             # check if block is too far away
-                    #             if dist <= MAX_LIGHT * 2 - 1:
-                    #                 # set all light children to zero
-                    #                 for nei_child_key in nei_children:
-                    #                     self.update_lightmap(*nei_child_key, 0)
-                                    
-                    #                 # push light source to be repropagated
-                    #                 reprop_light_keys.append((nei_chunk_index, nei_light_block_pos))
-                    
-                    # for (nei_light_chunk_index, nei_light_block_pos) in reprop_light_keys:
-                    #     # for all lights sources of the adjacent chunk, propagate it
-                    #     for other_light_key in self.source_to_children[nei_light_chunk_index][nei_light_block_pos]:
-                    #         # skip the justly deleted light
-                    #         if other_light_key == (chunk_index, block_pos):
-                    #             continue
-                    #         self.propagate_light(*other_light_key)
-                    
-                    # remove the aforedeleted block from the light sources map
                  
         self.data[chunk_index][block_pos] = name
 
@@ -549,16 +517,6 @@ class World:
             child_key = (chunk_index, block_pos)
             self.source_to_children[src_key[0]][src_key[1]].add(child_key)
 
-            # for yo in range(-MAX_LIGHT, MAX_LIGHT + 1):
-            #     for xo in range(-MAX_LIGHT, MAX_LIGHT + 1):
-            #         new_key = self.correct_tile(chunk_index, block_pos, xo, yo)
-            #         dist = abs(xo) + abs(yo)
-            #         light_value = MAX_LIGHT - dist
-            #         if light_value > 0:
-            #             self.source_to_children[src_key[0]][src_key[1]].add() 
-
-        # if block_pos not in self.lightmap[chunk_index]:
-        #     self.lightmap[chunk_index][block_pos] = 0
         self.lightmap[chunk_index][block_pos] = light
 
         # update the pixel on the lightmap
