@@ -142,7 +142,7 @@ data = defaultdict(lambda: BF.NONE, {
 params = {
     "air": {"light": MAX_LIGHT},
     "torch": {"light": MAX_LIGHT, "light_falloff": 1},
-    "dirt_f" | X.b: {"light": MAX_LIGHT - 1}
+    "dirt_f" | X.b: {"light": MAX_LIGHT}
 }
 
 # B L O C K  G R O U P S

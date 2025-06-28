@@ -331,13 +331,15 @@ class World:
             return self.data[chunk_index].get(block_pos, None)
         return None
     
-    def set(self, chunk_index, block_pos, name, propagate_light=True):
+    def set(self, chunk_index, block_pos, name, allow_propagation=True):
         """
         does 3 things:
         - modify the data
         - modify the lighting
         - propagate the lighting
         """
+        propagate_light = False
+
         if block_pos in self.data[chunk_index]:
             cur = self.data[chunk_index][block_pos]
 
@@ -378,15 +380,15 @@ class World:
                             self.update_lightmap(child_chunk_index, child_block_pos, 0)
 
                     del self.source_to_children[chunk_index][block_pos]
-                    propagate_light = False
                  
         self.data[chunk_index][block_pos] = name
 
         if bwand(name, BF.LIGHT_SOURCE):
             # update lightmap when a light source is placed
             light = blocks.params[name]["light"]
-
             self.update_lightmap(chunk_index, block_pos, light)
+            if allow_propagation:
+                propagate_light = True
         else:
             if block_pos not in self.lightmap[chunk_index]:
                 self.update_lightmap(chunk_index, block_pos, 0)
@@ -410,67 +412,71 @@ class World:
             self.source_to_children[chunk_index] = {}
     
     def create_chunk(self, chunk_index):
-        # initialize new chunk data in the world datae
-        chunk_x, chunk_y = chunk_index
-        self.data[chunk_index] = {}
-        self.chunk_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
-        self.chunk_colors[chunk_index] = [rand(0, 255) for _ in range(3)]
-        self.bg_data[chunk_index] = {}
-        self.init_light(chunk_index)
+        def create():
+            # initialize new chunk data in the world datae
+            chunk_x, chunk_y = chunk_index
+            self.data[chunk_index] = {}
+            self.chunk_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
+            self.chunk_colors[chunk_index] = [rand(0, 255) for _ in range(3)]
+            self.bg_data[chunk_index] = {}
+            self.init_light(chunk_index)
 
-        # generate the chunk
-        biome = Biome.FOREST
-        for rel_y in range(CH):
-            for rel_x in range(CW):
-                # init variables
-                block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
+            # generate the chunk
+            biome = Biome.FOREST
+            for rel_y in range(CH):
+                for rel_x in range(CW):
+                    # init variables
+                    block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
 
-                # chunks 0 and 1 need 1D noise for terrain height
-                if chunk_y in (0, 1):
-                    offset = int(self.octave_noise(block_x, 0, 0.04) * CW)
+                    # chunks 0 and 1 need 1D noise for terrain height
+                    if chunk_y in (0, 1):
+                        offset = int(self.octave_noise(block_x, 0, 0.04) * CW)
 
-                if chunk_y < 0:
-                    # SKY
-                    name = "air"
-
-                elif chunk_y == 0:
-                    # GROUND LEVEL
-                    if rel_y == offset:
-                        # top block in a biome
-                        name = bio.blocks[biome][0]
-                        if name == "soil_f":
-                            self.bg_data[chunk_index][(block_x, block_y)] = "dirt_f" | X.b
-                        else:
-                            self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
-                    elif rel_y < offset:
-                        # air
+                    if chunk_y < 0:
+                        # SKY
                         name = "air"
+
+                    elif chunk_y == 0:
+                        # GROUND LEVEL
+                        if rel_y == offset:
+                            # top block in a biome
+                            name = bio.blocks[biome][0]
+                            if name == "soil_f":
+                                self.bg_data[chunk_index][(block_x, block_y)] = "dirt_f" | X.b
+                            else:
+                                self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+                        elif rel_y < offset:
+                            # air
+                            name = "air"
+                        else:
+                            # underground blocks
+                            name = bio.blocks[biome][1]
+                            self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+
+                    elif chunk_y == 1:
+                        # DIRT-CAVE HYBRID
+                        if rel_y <= offset:
+                            name = bio.blocks[biome][1]
+                            self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+                        else:
+                            name = self.get_ore(block_y)
+                            self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+
+                    elif chunk_y < 20:
+                        # UNDERGROUND
+                        name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.46 else self.get_ore(block_y)
+                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
                     else:
-                        # underground blocks
-                        name = bio.blocks[biome][1]
-                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+                        # DEPTH LIMIT
+                        name = "blackstone"
 
-                elif chunk_y == 1:
-                    # DIRT-CAVE HYBRID
-                    if rel_y <= offset:
-                        name = bio.blocks[biome][1]
-                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
-                    else:
-                        name = self.get_ore(block_y)
-                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+                    self.set(chunk_index, (block_x, block_y), name, allow_propagation=False)
 
-                elif chunk_y < 20:
-                    # UNDERGROUND
-                    name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.46 else self.get_ore(block_y)
-                    self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
-                else:
-                    # DEPTH LIMIT
-                    name = "blackstone"
+            self.modify_chunk(chunk_index)
+            self.propagate_light(chunk_index)
 
-                self.set(chunk_index, (block_x, block_y), name, propagate_light=False)
-
-        self.modify_chunk(chunk_index)
-        self.propagate_light(chunk_index)
+        # DThread(target=create).start()
+        create()
     
     def get_ore(self, depth):
         if self.random.randint(0, 100) == 0:
@@ -539,8 +545,10 @@ class World:
 
         # update the pixel on the lightmap
         final_light_value = self.lightmap[chunk_index][block_pos]
-        alpha = (MAX_LIGHT - final_light_value) / MAX_LIGHT * 255
-        alpha = clamp(alpha, 0, 255)
+        # experimental
+        if final_light_value == MAX_LIGHT:
+            final_light_value -= 1
+        alpha = (MAX_LIGHT - 1 - final_light_value) / (MAX_LIGHT - 1) * 255
         blit_pos = (block_pos[0] % CW * BS, block_pos[1] % CH * BS)
         pygame.draw.rect(self.light_surfaces[chunk_index], (0, 0, 0, alpha), (*blit_pos, BS, BS))
 

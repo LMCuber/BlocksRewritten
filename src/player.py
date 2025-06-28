@@ -38,9 +38,18 @@ class Inventory:
     def __init__(self):
         self.keys: list[str] = []
         self.values: list[int] = []
+        self.index: int = 0
     
     def __getitem__(self, key):
         return self.keys[key]
+
+    @property
+    def current(self):
+        return self[self.index]
+
+    @property
+    def num_items(self):
+        return len(list(filter(None, self.values)))  # gets all truthy elements from self.values and returns its length
     
     def add(self, item, amount=1):
         if item in self.keys:
@@ -64,11 +73,17 @@ class Inventory:
             blit_pos = (x + i * (BS + S * 4), y)
             display.blit(blocks.images[block], blit_pos)
             rects.append(pygame.Rect(*blit_pos, BS + S * 2, BS + S * 2))
+
             # write the block amount
             write(display, "center", amount, fonts.orbitron[13], WHITE, blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
+
             # write the tooltip
             if rects[-1].collidepoint(mouse):
                 write(display, "topleft", block, fonts.orbitron[15], WHITE, mouse[0] + 20, mouse[1] + 20)
+
+            # show selection rectangle
+            if i == self.index:
+                pygame.draw.rect(display, WHITE, (blit_pos[0] - S, blit_pos[1] - S, BS + S * 2, BS + S * 2), S)
 
 
 class Player:
@@ -98,6 +113,7 @@ class Player:
         self.action = Action.NONE
         self.inventory = Inventory()
         self.inventory.add("torch", 10)
+        self.inventory.add("bricks", 10)
         self.last_placed = []
     
     def update(self, display, dt):
@@ -149,6 +165,11 @@ class Player:
             elif event.key == pygame.K_f:
                 # interact key
                 self.f_interact()
+            
+            elif event.key in [getattr(pygame, f"K_{n}") for n in range(9)]:
+                index = event.key - 49
+                if index < self.inventory.num_items:
+                    self.inventory.index = index
     
     def f_interact(self):
         for rect, base in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4), return_name=True):
@@ -209,22 +230,21 @@ class Player:
 
                     # break the block
                     if self.action == Action.BREAK:
-                        for xo, yo in product(range(-1, 2), repeat=2):
-                            new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
-                            if new_block_pos in self.world.data[new_chunk_index]:
-                                self.world.break_(new_chunk_index, new_block_pos)
-
-                        if False and block_pos in self.world.data[chunk_index]:
-                            # del self.world.data[chunk_index][block_pos]
-                            # increase the world breaking
-                            if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
-                                # break block since it already began breaking
-                                self.world.breaking.anim += 0.07
-                            else:
-                                # switch to new block
-                                self.world.breaking.index = chunk_index
-                                self.world.breaking.pos = block_pos
-                                self.world.breaking.anim = 0
+                        # for xo, yo in product(range(-1, 2), repeat=2):
+                        #     new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                        #     if new_block_pos in self.world.data[new_chunk_index]:
+                        #         self.world.break_(new_chunk_index, new_block_pos)
+                        if not (bwand(base, BF.EMPTY) or "b" in mods):
+                            if block_pos in self.world.data[chunk_index]:
+                                # increase the world breaking
+                                if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
+                                    # break block since it already began breaking
+                                    self.world.breaking.anim += 5
+                                else:
+                                    # switch to new block
+                                    self.world.breaking.index = chunk_index
+                                    self.world.breaking.pos = block_pos
+                                    self.world.breaking.anim = 0
 
                     # build a new block
                     elif self.action == Action.PLACE:
@@ -237,7 +257,7 @@ class Player:
                             if "b" in mods:
                                 can_place = True
                         if can_place:
-                            placed_name = self.inventory[0]
+                            placed_name = self.inventory.current
                             self.world.set(chunk_index, block_pos, placed_name)
                             self.process_placed_block(chunk_index, block_pos, placed_name)
                         

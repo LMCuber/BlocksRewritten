@@ -1,5 +1,5 @@
 [game]
-profile = true
+profile = false
 
 [window]
 width = 1080
