@@ -9,6 +9,11 @@ from dataclasses import dataclass
 from math import sin, floor, ceil, log10, sqrt
 from math import log as ln
 import time
+from colorama import Fore
+import colorama
+
+
+colorama.init(autoreset=True)
 
 
 CW = 16
@@ -40,14 +45,6 @@ def sigfigs(x, n):
     mag = floor(log10(abs(x)))
     scale = 10 ** (n - 1 - mag)
     return round(x * scale) / scale
-
-
-def sign(n):
-    if n > 0:
-        return 1
-    elif n < 0:
-        return -1
-    return 0
 
 
 def cceil(n):

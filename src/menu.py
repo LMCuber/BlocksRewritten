@@ -21,7 +21,7 @@ widgets = {
         # pgw.ComboBox(window.display, "Palette", ["asd", "dsa"], **kwargs),
     # ]),
     "checkboxes": SmartList([
-        pgw.Checkbox(window.display, "Hitboxes", checked=True, **kwargs),
+        pgw.Checkbox(window.display, "Hitboxes", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Collisions", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Chunk Borders", checked=True, **kwargs),
         pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs),
@@ -38,6 +38,7 @@ widgets = {
 
 # binding variables to the widgets
 hitboxes = widgets["checkboxes"].find(lambda x: x.text == "Hitboxes")
+collisions = widgets["checkboxes"].find(lambda x: x.text == "Collisions")
 chunk_borders = widgets["checkboxes"].find(lambda x: x.text == "Chunk Borders")
 palettize = widgets["checkboxes"].find(lambda x: x.text == "Palettize")
 lighting = widgets["checkboxes"].find(lambda x: x.text == "Lighting")

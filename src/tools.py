@@ -64,7 +64,16 @@ def get_crystal(type_, color=None):
 
 
 def get_cube(base_color):
-    poly = Crystal(window.display, "caduceus.obj", [], [], [], (400, 400), 400, 1, 0, 0, 0, 0, 0, 0, normalize=True, normals=False)
+    poly = Crystal(window.display, "bow.obj", [], [], [], (400, 400), 200, 1, 0, 0, 0, 0, 0, 0, normalize=True, normals=False)
+    return poly
+
+
+def get_obj(path, mult=240):
+    return Crystal(window.display, path, [], [], [], (400, 400), mult, 1, 0, 0, 0, 0, 0, 0, normalize=True, normals=False)
+
+
+def get_sickle():
+    poly = Crystal(window.display, Path("res", "objects", "bow.obj"), [], [], [], (window.center[0], window.center[1]), 280, 1, 0, 0, 0, 0, 0, 0, normalize=True, normals=True, mtl_file=Path("res", "objects", "bow.mtl"))
     return poly
 
 
@@ -301,8 +310,7 @@ def get_sword(base_color):
             [[browns[130], outline_color], [4 + 16, 0 + 16, 3 + 16, 7 + 16]],
             [[browns[120], outline_color], [1 + 16, 5 + 16, 6 + 16, 2 + 16]],
         ],
-        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0, 0,
-        fill_as_connections=False,
+        (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0, 0
     )
     return sword
 
@@ -473,7 +481,6 @@ def get_axe(base_color):
 
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015,0,
-        fill_as_connections=False,
     )
     return axe
 
@@ -526,7 +533,6 @@ def get_shovel(base_color):
             [[grays[170], outline_color], [10, 11, 12]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015,0,
-        fill_as_connections=False,
         backface_culling=False,
     )
     return shovel
@@ -575,7 +581,6 @@ def get_pickaxe(base_color):
 
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015,0,
-        fill_as_connections=False,
     )
     return pickaxe
 
@@ -629,7 +634,6 @@ def get_kunai(base_color):
             [[browns[60], outline_color], [9, 10, 11, 12]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
     )
     return kunai
 
@@ -683,7 +687,6 @@ def get_spear(base_color):
             [[browns[60], outline_color], [9, 10, 11, 12]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
     )
     return spear
 
@@ -736,7 +739,6 @@ def get_spear(base_color):
             [[browns[60], outline_color], [12, 8, 5, 9]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
     )
     return spear
 
@@ -795,7 +797,6 @@ def get_bow(base_color):
             [[get_brown(160, 20), outline_color], [1 + 8, 5 + 8, 6 + 8, 2 + 8]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
     )
     return bow
 
@@ -896,7 +897,6 @@ def get_hammer(base_color):
             [[browns[130], None], [24 + 1, 24 + 5, 24 + 6, 24 + 2]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
     )
     return hammer
 
@@ -986,7 +986,6 @@ def get_dart(base_color):
             [[get_acolor(230, 20), outline_color], [21, 22, 16, 0]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
         backface_culling=False,
     )
     return dart
@@ -1090,7 +1089,6 @@ def get_staff(base_color):
             [[get_red(140, 20), outline_color], [1 + 8 * 4, 5 + 8 * 4, 6 + 8 * 4, 2 + 8 * 4]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, 0.015, 0,
-        fill_as_connections=False,
     )
     return hammer
 
@@ -1146,7 +1144,6 @@ def get_maru(mult, hard, medium, soft):
             [[hard, hard], [3, 4, 5, 0]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
-        fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
         speed=compos_speed,
@@ -1200,7 +1197,6 @@ def get_kobuse(mult, hard, medium, soft):
             [[soft, soft], [0, 8, 9, 10]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
-        fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
         speed=compos_speed,
@@ -1256,7 +1252,6 @@ def get_honsanmai(mult, hard, medium, soft):
 
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
-        fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
         speed=compos_speed,
@@ -1312,7 +1307,6 @@ def get_shihozume(mult, hard, medium, soft):
 
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
-        fill_as_connections=False,
         # target_oox=0,
         # target_m=compos_mult,
         speed=compos_speed,
@@ -1369,7 +1363,6 @@ def get_makuri(mult, hard, medium, soft):
             [[soft, soft], [10, 11, 8, 9]],
         ],
         (window.width / 2, window.height / 2), mult, 2, 0, 0, 0, 0, compos_yvel, 0,
-        fill_as_connections=False,
         target_oox=0,
         target_m=compos_mult,
         speed=compos_speed,

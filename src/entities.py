@@ -119,6 +119,8 @@ class Transform:
     sine: tuple[float, float] = (0, 0)
 
     def __post_init__(self):
+        self.last_tile = None
+        self.last_blocks_around = None
         if any(self.sine):
             self.sine_offset = randf(0, 2 * pi)
 
@@ -162,9 +164,13 @@ class Sprite:
     @classmethod
     def from_img(cls, img):
         self = cls()
+        self.hitbox_size = None
+        self.offset = 0
+
         self.images = [img]
         self.fimages = [pygame.transform.flip(image, True, False) for image in self.images]
         self.anim = 0
+        self.anim_skin = None
         self.anim_speed = 0
         self.rect = self.images[0].get_frect()
         self.avel = 0
@@ -180,9 +186,15 @@ class Sprite:
         self.anim_mode = path.stem  # "run"
         # -- BELOW UPDATED EVERY FRAME --
         self.images = []
-        self.offset = (0, 0)
+        self.offset = 0
         self.anim_speed = 0.2
         return self
+
+
+@component
+@dataclass
+class Animation:
+    pass
 
 
 @component
@@ -217,7 +229,7 @@ class PhysicsSystem:
         self.set_cache(True)
         self.operates(Transform, Hitbox, Sprite)
     
-    def process(self, world, scroll, hitboxes: bool, chunks):
+    def process(self, world, scroll, collisions: bool, chunks):
         for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
             sprite.rot = 0
 
@@ -237,9 +249,22 @@ class PhysicsSystem:
             # vertical movement
             tr.vel[1] += tr.gravity
             hitbox.y += tr.vel[1]
-            for rect in world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y):
-                # if hitboxes:
-                #     pygame.draw.rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
+
+            # get the cached neighboring blocks if on same block as last frame
+            current_tile = world.pos_to_tile(hitbox.center)
+            if tr.last_tile is None:
+                # first iteration, so no cache yet
+                tr.last_blocks_around = world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y)
+            else:
+                # has cache, so check whether current position is same as last position
+                if current_tile != tr.last_tile:
+                    tr.last_blocks_around = world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y)
+            tr.last_tile = current_tile
+
+            # access cached collision blocks
+            for rect in tr.last_blocks_around:
+                if collisions:
+                    pygame.draw.rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
                 if hitbox.colliderect(rect):
                     if tr.vel[1] > 0:
                         hitbox.bottom = rect.top
@@ -252,7 +277,9 @@ class PhysicsSystem:
             
             # horizontal movement
             hitbox.x += tr.vel[0]
-            for rect in world.get_blocks_around(hitbox, range_x=range_x, range_y=range_y):
+
+            # access cached collision blocks
+            for rect in tr.last_blocks_around:
                 if hitbox.colliderect(rect):
                     if tr.vel[0] > 0:
                         hitbox.right = rect.left
@@ -288,10 +315,14 @@ class PhysicsSystem:
 class AnimationSystem:
     def __init__(self):
         self.set_cache(True)
-        self.operates(Sprite)
+        self.operates(Animation, Sprite)
     
     def process(self, chunks):
-        for ent, chunk, (sprite,) in self.get_components(0, chunks=chunks):
+        for ent, chunk, (anim, sprite) in self.get_components(0, chunks=chunks):
+            # safe
+            if sprite.anim_skin is None:
+                return
+
             # get the spritesheet images, offset and speed
             sprite.images, sprite.offset, sprite.anim_speed, sprite.hitbox_size = AnimData.get(sprite.anim_skin, sprite.anim_mode)
             # increase the animation frame
@@ -309,17 +340,22 @@ class ChunkRepositioningSystem:
         self.operates(Hitbox)
     
     def process(self, chunks):
+        return
         for ent, chunk, arch, (hitbox,) in self.get_components(0, chunks=chunks, archetype=True):
+            # don't try to move to adjacent chunk if chunk is None (unbound)
+            if chunk is None:
+                continue
+
             # the percentage is: (block position - chunk block position) / chunk size
             x, y = hitbox.center
             perc_x = ((x / BS) - (chunk[0] * CW)) / CW
             perc_y = ((y / BS) - (chunk[1] * CH)) / CH
             # check if out of bounds and relocate
-            if perc_x <= 0:
+            if perc_x < 0:
                 self.relocate(chunk, arch, ent, (chunk[0] - 1, chunk[1]))
             elif perc_x >= 1:
                 self.relocate(chunk, arch, ent, (chunk[0] + 1, chunk[1]))
-            elif perc_y <= 0:
+            elif perc_y < 0:
                 self.relocate(chunk, arch, ent, (chunk[0], chunk[1] - 1))
             elif perc_y >= 1:
                 self.relocate(chunk, arch, ent, (chunk[0], chunk[1] + 1))
@@ -333,11 +369,14 @@ class RenderSystem:
         self.operates(Transform, Hitbox, Sprite)
     
     def process(self, scroll, hitboxes, chunks):
+        num = 0
         for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
+            num += 1
             # get which image
             image = sprite.images[int(sprite.anim)]
             # rotate it when needed
-            image = pygame.transform.rotate(image, sprite.rot)
+            if sprite.rot:  # (!= 0)
+                image = pygame.transform.rotate(image, sprite.rot)
             # flip the image if player is moving to the left instead of to the right
             if tr.vel[0] < 0:
                 image = pygame.transform.flip(image, True, False)
@@ -345,13 +384,17 @@ class RenderSystem:
             scrolled_hitbox = hitbox.move(-scroll[0], -scroll[1])
             blit_rect = image.get_rect(center=scrolled_hitbox.center).move(0, sprite.offset)
 
+            # if chunk is not None:
+            #     write(self.display, "center", chunk, fonts.orbitron[20], BLACK, scrolled_hitbox.centerx, scrolled_hitbox.centery - 80)
+
+            self.display.blit(image, blit_rect)
+            
             # debugging
             if hitboxes:
                 pygame.draw.rect(self.display, GREEN, blit_rect, 1)
                 pygame.draw.rect(self.display, ORANGE, scrolled_hitbox, 1)
-            write(self.display, "center", chunk, fonts.orbitron[20], BLACK, scrolled_hitbox.centerx, scrolled_hitbox.centery - 80)
-
-            self.display.blit(image, blit_rect)
+        
+        return num
 
 
 @system(cache=True)
@@ -420,7 +463,7 @@ class CollisionSystem:
                             create_entity(
                                 Transform([*r_rect.center], [0, -0.5], gravity=0.01),
                                 DamageText(rand(5, 20), r_rect.centery - 100),
-                                chunk=0
+                                chunk=None
                             )
                             # check if the receiver is dead, if so, kill it
                             if r_health.value <= 0:
@@ -463,14 +506,13 @@ class DropSystem:
     def __init__(self, display):
         self.display = display
         self.set_cache(True)
-        self.operates(Drop, Transform, Sprite)
+        self.operates(Drop, Hitbox)
     
     def process(self, player, scroll, chunks):
-        for ent, chunk, (drop, tr, sprite) in self.get_components(0, chunks=chunks):
-            rect = pygame.Rect(tr.pos, sprite.rect.size)
-            if rect.colliderect(player.rect):
+        for ent, chunk, arch, (drop, hitbox) in self.get_components(0, chunks=chunks, archetype=True):
+            if hitbox.colliderect(player.rect):
                 player.inventory.add(drop.block, 1)
-                self.delete(0, ent, chunk)
+                self.delete(arch, ent, chunk)
 
 
 @system(cache=True)

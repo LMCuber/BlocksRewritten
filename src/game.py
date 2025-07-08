@@ -38,18 +38,20 @@ class Game:
         self.state = States.PLAY
         self.substate = Substates.PLAY
         self.disable_input = False
+        self.num_rendered_entities = 0
         # joystick
         self.joystick = joystick.JoystickManager()
         # UI / UX
-        # self.sword = get_shihozume(300, (120, 120, 120), (90, 90, 90), (30, 30, 30))
-        self.sword = get_cube((255, 190, 200))
+        # self.sword = get_sword(None)
+        self.sword = get_sickle()
+        # self.sword = get_axe((120, 120, 120))
         self.midblit = Midblit(self, window)
         # menu stuff
         menu.quit.command = self.quit
     
-    @staticmethod
-    def quit(self):
-        self.running = False
+    @property
+    def stat_color(self):
+        return BLACK if self.scroll[1] < 220 else WHITE
     
     def init_systems(self):
         self.chunk_repositioning_system = ChunkRepositioningSystem()
@@ -57,7 +59,7 @@ class Game:
         self.physics_system = PhysicsSystem(window.display)
         self.animation_system = AnimationSystem()
         self.player_follower_system = PlayerFollowerSystem(window.display)
-        self.debug_system = DebugSystem(window.display)
+        # self.debug_system = DebugSystem(window.display)
         self.collision_system = CollisionSystem()
         self.damage_text_system = DamageTextSystem(window.display)
         self.display_health_system = DisplayHealthSystem(window.display)
@@ -66,8 +68,8 @@ class Game:
     def process_systems(self, processed_chunks):
         self.chunk_repositioning_system.process(chunks=processed_chunks)
         self.animation_system.process(chunks=processed_chunks)
-        self.physics_system.process(self.world, self.scroll, menu.hitboxes, chunks=processed_chunks)
-        self.render_system.process(self.scroll, menu.hitboxes, chunks=processed_chunks)
+        self.physics_system.process(self.world, self.scroll, menu.collisions, chunks=processed_chunks)
+        # self.num_rendered_entities = self.render_system.process(self.scroll, menu.hitboxes, chunks=processed_chunks)
         self.player_follower_system.process(self.player, chunks=processed_chunks)
         self.collision_system.process(self.player, chunks=processed_chunks)
         self.damage_text_system.process(self.scroll, chunks=processed_chunks)
@@ -88,7 +90,7 @@ class Game:
         self.shader.send("palettize", menu.palettize.checked)
 
         w = 120
-        if self.midblit.active and False:
+        if self.midblit.active:
             self.dead_zone = self.midblit.rect
         else:
             self.dead_zone = (0, 0, 0, 0)
@@ -109,7 +111,9 @@ class Game:
         self.scroll[0] = int(self.fake_scroll[0])
         self.scroll[1] = int(self.fake_scroll[1])
     
-    def quit(self):
+    def quit(self, timer_msg=False):
+        if timer_msg:
+            print(Fore.GREEN + f"Runtime of {self.config["game"]["timer"] // 1000}s ended")
         pygame.quit()
         sys.exit()
             
@@ -143,7 +147,7 @@ class Game:
                         pass
                     
                     elif event.key == pygame.K_q:
-                        self.running = False
+                        self.quit()
                 
                 elif event.type == pygame.VIDEORESIZE:
                     print(event.size)
@@ -159,14 +163,14 @@ class Game:
             # -------- P L A Y ---------------------------
             if self.state == States.PLAY:
                 # draw and update the terrain
-                num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll)
-                processed_chunks.append(0)  # the "global" chunk, so entities that update always
+                num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll, self, dt)
+                processed_chunks.append(None)  # the "global" chunk, so entities that update always
                 
                 # process the ECS systems
                 self.process_systems(processed_chunks)
 
-                # update the player
-                self.player.update(window.display, dt)
+                # inventory
+                self.player.inventory.update(window.display)
 
                 # midblit
                 self.midblit.update()
@@ -175,7 +179,7 @@ class Game:
             pgw.draw_and_update_widgets()
 
             # display the fps
-            write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], BLACK if self.scroll[1] < 220 else WHITE, 5, 5)
+            write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], self.stat_color, 5, 5)
 
             # display important parameters
             params = ""
@@ -189,10 +193,11 @@ class Game:
                 write(window.display, "topleft", params, fonts.orbitron[12], BLACK, 5, 30)
 
             # display debugging / performance stats
-            write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], BLACK, 5, 70)
-            # write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], BLACK, 5, 60)
-            write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], BLACK, 5, 90)
-            write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], BLACK, 5, 110)
+            write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], self.stat_color, 5, 70)
+            write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 90)
+            # write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], self.stat_color, 5, 60)
+            write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 130)
+            write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 150)
 
             # --- DO ALL RENDERING BEFORE THIS CODE BELOW ---
             self.send_data_to_shader()
@@ -205,5 +210,9 @@ class Game:
 
             # you won't guess what this function does
             self.shader.release_all_textures()
+
+            # debug quit
+            if ticks() - self.last_start >= self.config["game"].get("timer", float("inf")):
+                self.quit(timer_msg=True)
 
         self.quit()

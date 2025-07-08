@@ -1,5 +1,6 @@
 [game]
 profile = false
+# timer = 10_000
 
 [window]
 width = 1080

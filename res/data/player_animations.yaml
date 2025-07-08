@@ -22,9 +22,11 @@ samurai:
 ra:
     idle:
         frames: 2
+        offset: -15
     
     run:
         frames: 4
+        offset: -15
 
 _default:
     _default_run:

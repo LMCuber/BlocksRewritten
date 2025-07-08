@@ -84,7 +84,7 @@ vec3 gaussianBlur(vec2 pos, float sigma) {
 
 void main() {
     // safe
-    time; paletteTex; rOffset; gOffset; bOffset; pink; deadZone;
+    time; paletteTex; rOffset; gOffset; bOffset; pink; grayscale;
 
     // initializen variabeln
     vec4 color;
@@ -98,13 +98,11 @@ void main() {
         color = palettizeColor(color);
     }
 
-    // when grayscale, then just make it grayscale
-    if (grayscale) {
-        // color = vec4(rgb_to_gray(color.rgb), cur.a);
-        color = vec4(color.rgb, cur.a);
+    // dead zone
+    if (aabb(pos * res, deadZone)) {
+        fColor = cur;
+        return;
     }
-
-    // fColor = color;
 
     // S E T  F I N A L  C O L O R
     fColor = color;

@@ -2,12 +2,14 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 #
+from pyengine.pgbasics import *
+#
 from .engine import *
 from .window import *
 
 
 # C O N S T A N T S
-MAX_LIGHT = 15
+MAX_LIGHT = 12
 
 
 # F U N C T I O N S
@@ -170,10 +172,20 @@ block_list = [
 ]
 images = {}
 _spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
+
+# load block images
 for y, layer in enumerate(block_list):
-    for x, block in enumerate(layer):
-        images[block] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
-        images[block | X.b] = darken(images[block], 0.7)
+    for x, name in enumerate(layer):
+        images[name] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
+
+# additional dynamically generated blocks
+images["coal"] = images["base-ore"]
+images["iron"] = swap_palette(images["base-ore"], BLACK, (161, 157, 148))
+images["diamond"] = swap_palette(images["base-ore"], BLACK, (185, 242, 255))
+
+# create background blocks
+for name, image in images.copy().items():
+    images[name | X.b] = darken(images[name], 0.7)
 
 # pygame.image.save(palettize_img(_spritesheet, palette_img), "pqweqwe.png")
 

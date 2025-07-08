@@ -99,8 +99,6 @@ class Player:
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
         self.rect = pygame.FRect((0, -100, 52, 70))
-        # ECS?!
-        # self.sprite = Sprite.from_path(Path("res", "images", "player_animations", self.anim_skin, f"{self.anim_mode}.png")),
         # physics
         self.yvel = 0
         self.xvel = 0
@@ -113,14 +111,14 @@ class Player:
         self.action = Action.NONE
         self.inventory = Inventory()
         self.inventory.add("torch", 10)
-        self.inventory.add("bricks", 10)
+        self.inventory.add("iron", 10)
+        self.inventory.add("workbench", 77)
         self.last_placed = []
     
     def update(self, display, dt):
         self.move(dt)
         self.edit(display)
         self.draw(display)
-        self.inventory.update(display)
 
     def draw(self, display):
         # get the current animation image
@@ -142,7 +140,7 @@ class Player:
         
         # show the hitboxes
         if self.menu.hitboxes.checked:
-            # scrolled_rect = hitbox (ORANGE), image_rect = actual blit position (LIGHT_GREEN)
+            # scrolled_rect = hitbox and movement (ORANGE), image_rect = blit position (LIGHT_GREEN)
             pygame.draw.rect(window.display, ORANGE, self.scrolled_rect, 1)
             pygame.draw.rect(window.display, LIGHT_GREEN, image_rect, 1)
     
@@ -160,7 +158,16 @@ class Player:
         
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                self.anim_skin = cyclic(["_default", "samurai", "nutcracker"])[self.anim_skin]
+                self.anim_skin = cyclic(["_default", "samurai", "nutcracker", "ra"])[self.anim_skin]
+                # drop_img = pygame.transform.scale_by(blocks.images["soil_f"], 0.5)
+                # for _ in range(1000):
+                #     create_entity(
+                #         Transform([300, 300], [0, 0], gravity=0.03, sine=(0.35, 4)),
+                #         Hitbox((-rand(-50, 50), 0), (0, 0), anchor="midbottom"),
+                #         Sprite.from_img(drop_img),
+                #         # Drop("soil_f"),
+                #         chunk=None
+                #     )
             
             elif event.key == pygame.K_f:
                 # interact key
@@ -239,7 +246,7 @@ class Player:
                                 # increase the world breaking
                                 if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
                                     # break block since it already began breaking
-                                    self.world.breaking.anim += 5
+                                    self.world.breaking.anim += 10
                                 else:
                                     # switch to new block
                                     self.world.breaking.index = chunk_index

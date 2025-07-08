@@ -1,4 +1,7 @@
+from pyengine.pgbasics import *
+#
 from .engine import *
+from . import fonts
 
 
 # M I D B L I T  A S S E T S
@@ -61,6 +64,7 @@ class Midblit:
         # sword
         if self.mode == MBT.WORKBENCH:
             self.game.sword.update()
+            write(self.display, "center", f"{self.game.sword.num_vertices} vertices", fonts.orbitron[14], BLACK, *self.window.center)
     
     def update(self):
         if self.active:
