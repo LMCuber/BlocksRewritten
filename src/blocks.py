@@ -1,6 +1,7 @@
 from __future__ import annotations
-import os
 from collections import defaultdict
+import os
+import re
 #
 from pyengine.pgbasics import *
 #
@@ -41,6 +42,7 @@ def palettize_img(img, palette):
     return ret_img
 
 
+# B L O C K  N A M E  S P E C I F I C  F U N C T I O N S
 """
 Block modifications:
     b - background block
@@ -59,14 +61,15 @@ def norm(name: str) -> tuple[str, list[str]]:
 
 def pure(name: str) -> tuple[str, list[str], str, list[str]]:
     """
-    Returns the pure version, as well as the normalized version, of a block, which is its most important part. This is to make sure that for e.g. tree_f and tree_p don't get differentiated.
-    Pure values are split by underscores.
+    Returns the pure version, as well as the normalized version, of a block, which is its most important part.
+    This is to make sure that for e.g. tree_f and tree_p don't get differentiated when checking for "wood" for example.
+    (Pure values are split by underscores).
     """
     base, mods = norm(name)
     spl = base.split("_")
     pure = spl[0]
     vers = spl[1:]
-    return pure, spl, base, mods
+    return pure, mods, vers
 
 
 def bwand(name: str, flag: BF):
@@ -78,9 +81,38 @@ def nbwand(name: str, flag: BF):
 
 
 def get_data(name):
-    pur, spl, base, mods = pure(name)
-    # default case (get from dictionary)
-    return data[name]
+    base, _ = norm(name)
+    return data[base]
+
+
+"""
+"Repr" here means a player readable block name, such as "wood_f_vrN" -> "forest wood variation 1"
+"""
+def repr(name):
+    pure_, _, vers = pure(name)
+    ret = pure_
+
+    if "f" in vers:
+        ret = f"forest {ret}"
+    if "p" in vers:
+        ret = f"forest {ret}"
+
+    # complex "vr" (variation) pattern
+    for ver in vers:
+        if (mat := re.match(r"vr(.+)", ver)):  # herculean use of the walrus operator
+            mat = mat.group(1)
+
+            # if mat == "N":
+            #     ret = f"normal {ret}"
+            if mat == "L":
+                ret = f"left {ret}"
+            if mat == "R":
+                ret = f"right {ret}"
+
+            if mat.isdigit():
+                ret = f"{ret} variation {mat}"
+
+    return ret
 
 
 # C L A S S E S

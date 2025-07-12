@@ -193,7 +193,7 @@ class Game:
                 write(window.display, "topleft", params, fonts.orbitron[12], BLACK, 5, 30)
 
             # display debugging / performance stats
-            write(window.display, "topleft", f"blocks : {num_blocks}", fonts.orbitron[15], self.stat_color, 5, 70)
+            write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 70)
             write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 90)
             # write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], self.stat_color, 5, 60)
             write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 130)

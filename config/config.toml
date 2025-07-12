@@ -1,10 +1,10 @@
 [game]
 profile = false
-# timer = 10_000
+# timer = 20_000
 
 [window]
 width = 1080
 height = 720
 fullscreen = false
-fps_cap = 144
+fps_cap = 165
 vsync = false

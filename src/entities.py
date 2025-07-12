@@ -19,7 +19,7 @@ class AnimData:
     data = {}
     for entity_type in ["player_animations", "mobs", "statics"]:
         with open(Path("res", "data", f"{entity_type}.yaml")) as f:
-            yaml_data = yaml.safe_load(f);
+            yaml_data = yaml.safe_load(f)
 
         for skin in yaml_data:
             # load the defaults (different from _default, which is the default player character)
@@ -511,8 +511,9 @@ class DropSystem:
     def process(self, player, scroll, chunks):
         for ent, chunk, arch, (drop, hitbox) in self.get_components(0, chunks=chunks, archetype=True):
             if hitbox.colliderect(player.rect):
-                player.inventory.add(drop.block, 1)
-                self.delete(arch, ent, chunk)
+                if player.inventory.can_add:
+                    player.inventory.add(drop.block, 1)
+                    self.delete(arch, ent, chunk)
 
 
 @system(cache=True)

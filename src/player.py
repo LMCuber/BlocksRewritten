@@ -6,10 +6,9 @@ from pyengine.ecs import *
 from .engine import *
 from .entities import *
 from .window import window
-from .blocks import BF, inventory_img, bwand
+from .blocks import BF, inventory_img, bwand, X
 from .midblit import MBT
 from .tools import *
-
 
 
 def cyclic(l):
@@ -35,7 +34,9 @@ class MoveMode(Enum):
 
 
 class Inventory:
-    def __init__(self):
+    def __init__(self, game):
+        self.max_items = 11
+        self.game = game
         self.keys: list[str] = []
         self.values: list[int] = []
         self.index: int = 0
@@ -51,7 +52,13 @@ class Inventory:
     def num_items(self):
         return len(list(filter(None, self.values)))  # gets all truthy elements from self.values and returns its length
     
+    @property
+    def can_add(self):
+        return self.num_items < self.max_items
+    
     def add(self, item, amount=1):
+        if not self.can_add:
+            return
         if item in self.keys:
             # already in inventory
             self.values[self.keys.index(item)] += 1
@@ -60,18 +67,26 @@ class Inventory:
             self.keys.append(item)
             self.values.append(amount)
     
+    def slide(self, amount):
+        self.index += amount
+        if amount > 0:
+            self.index = min(self.index, self.num_items - 1)
+        else:
+            self.index = max(self.index, 0)
+    
     def update(self, display):
         # inventory image
         mouse = pygame.mouse.get_pos()
-        topleft = (300, 10)
+        topleft = (window.center[0] - inventory_img.width / 2, 10)
         display.blit(inventory_img, topleft)
         x, y = topleft[0] + S * 2, topleft[1] + S * 2
         rects = []
+
         # blocks in the inventory
-        for i, (block, amount) in enumerate(zip(self.keys, self.values)):
+        for i, (name, amount) in enumerate(zip(self.keys, self.values)):
             # render the block
             blit_pos = (x + i * (BS + S * 4), y)
-            display.blit(blocks.images[block], blit_pos)
+            display.blit(blocks.images[name], blit_pos)
             rects.append(pygame.Rect(*blit_pos, BS + S * 2, BS + S * 2))
 
             # write the block amount
@@ -79,11 +94,15 @@ class Inventory:
 
             # write the tooltip
             if rects[-1].collidepoint(mouse):
-                write(display, "topleft", block, fonts.orbitron[15], WHITE, mouse[0] + 20, mouse[1] + 20)
+                write(display, "topleft", name, fonts.orbitron[15], WHITE, mouse[0] + 20, mouse[1] + 20)
 
-            # show selection rectangle
+            # only applicable to selected block
             if i == self.index:
+                # selected rectangle
                 pygame.draw.rect(display, WHITE, (blit_pos[0] - S, blit_pos[1] - S, BS + S * 2, BS + S * 2), S)
+
+                # display the name with text
+                write(display, "midtop", blocks.repr(name), fonts.orbitron[16], self.game.stat_color, window.width / 2, 60)
 
 
 class Player:
@@ -109,10 +128,13 @@ class Player:
         self.pressing_jump = False
         # interaction with blocks
         self.action = Action.NONE
-        self.inventory = Inventory()
-        self.inventory.add("torch", 10)
-        self.inventory.add("iron", 10)
-        self.inventory.add("workbench", 77)
+        self.inventory = Inventory(self.game)
+        self.inventory.add("torch", 99)
+        self.inventory.add("bricks", 99)
+        self.inventory.add("workbench", 99)
+        self.inventory.add("dirt_f", 99)
+        self.inventory.add("wood_p_vrN", 99)
+        self.inventory.add("dynamite", 99)
         self.last_placed = []
     
     def update(self, display, dt):
@@ -173,11 +195,14 @@ class Player:
                 # interact key
                 self.f_interact()
             
-            elif event.key in [getattr(pygame, f"K_{n}") for n in range(9)]:
+            elif event.key in [getattr(pygame, f"K_{n}") for n in range(1, 10)]:
                 index = event.key - 49
                 if index < self.inventory.num_items:
                     self.inventory.index = index
-    
+        
+        elif event.type == pygame.MOUSEWHEEL:
+            self.inventory.slide(-event.y)
+            
     def f_interact(self):
         for rect, base in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4), return_name=True):
             if self.rect.colliderect(rect):

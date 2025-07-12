@@ -24,7 +24,7 @@ widgets = {
         pgw.Checkbox(window.display, "Hitboxes", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Collisions", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Chunk Borders", checked=True, **kwargs),
-        pgw.Checkbox(window.display, "Palettize", checked=True, **kwargs),
+        pgw.Checkbox(window.display, "Palettize", checked=False, **kwargs),
         pgw.Checkbox(window.display, "Lighting", checked=True, **kwargs),
         pgw.Checkbox(window.display, "Debug lighting", checked=False, **kwargs),
     ]),

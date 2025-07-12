@@ -4,6 +4,8 @@ import tomllib as toml
 from random import uniform as randf
 from math import sin, pi
 from pyengine.pgbasics import set_pyengine_hwaccel
+import ctypes
+import platform
 
 
 pygame.init()
@@ -11,6 +13,8 @@ pygame.init()
 
 class Window:
     def create_window(self, width, height, fullscreen, vsync, fps_cap):
+        # windows
+        # ctypes.windll.user32.SetProcessDPIAware()
         # set PyEngine hwaccel flag
         set_pyengine_hwaccel(False)
         # pygame window and OpenGL flags
