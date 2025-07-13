@@ -143,11 +143,12 @@ def get_sphere(base_color):
 def get_rock(base_color):
     num_lon = 8
     num_lat = 8
-    mult = 120
+    mult = 70
+    av = 0.004
     
     # generate vertices
     vertices = []
-    for _ in range(32):
+    for _ in range(2 ** 9):
         point_r = random.random()
         u1 = random.random()
         u2 = random.random()
@@ -162,7 +163,7 @@ def get_rock(base_color):
     hull = ConvexHull(vertices)
     fills = []
     for simplex in hull.simplices:
-        fill = [[[rand(0, 255)] * 4, (0, 0, 0, 0)], simplex]
+        fill = [[rgb_mult((218, 165, 32) if chance(1 / 20) else (65, 65, 65), randf(0.8, 1.2)), BLACK], simplex]
         fills.append(fill)
 
     # object creation
@@ -174,7 +175,7 @@ def get_rock(base_color):
             # lines
         ],
         fills,
-        (window.width / 2, window.height / 2), mult, 1, 0, 0, 0, 0.01, 0.01, 0.01,
+        (window.width / 2, window.height / 2), mult, 1, 0, 0, 0, av, av, av,
         fill_as_connections=False,
         backface_culling=False,
     )

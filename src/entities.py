@@ -8,6 +8,7 @@ from pyengine.ecs import *
 from pyengine.pgbasics import *
 #
 from . import fonts
+from . import blocks
 from .engine import *
 
 

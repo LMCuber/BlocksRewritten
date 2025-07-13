@@ -3,6 +3,8 @@ from enum import Enum
 from collections import deque
 import uuid
 from multiprocessing import Process
+
+import pygame.gfxdraw
 #
 from pyengine.pgbasics import *
 from pyengine.ecs import *
@@ -62,7 +64,7 @@ class World:
         self.lightmap:           dict[Pos, dict[Pos, int]]                  = {} # light data
         self.light_surfaces:     dict[Pos, dict[Pos, pygame.Surface]]       = {} # light textures
         self.source_to_children: dict[Pos, dict[Pos, set[tuple[Pos, Pos]]]] = {} # saves all blocks that have been affected by a light source
-        self.child_to_source: dict[tuple[Pos, Pos], tuple[Pos, Pos]]        = {} # pointer from all children to their parent
+        self.child_to_source:    dict[tuple[Pos, Pos], tuple[Pos, Pos]]     = {} # pointer from all children to their parent
 
         # world interactive stuff
         self.breaking = Breaking()
@@ -207,7 +209,6 @@ class World:
         def _set(name, mod_pos):
             rel_x, rel_y = mod_pos[0] - chunk_index[0] * CW, mod_pos[1] - chunk_index[1] * CH
             if 0 <= rel_x < CW and 0 <= rel_y < CH:
-                test("set")
                 self.set(chunk_index, mod_pos, name, allow_propagation=False)
             else:
                 xo = mod_pos[0] - block_pos[0]
@@ -254,8 +255,8 @@ class World:
                     # forest modifications
                     if biome == Biome.FOREST:
 
-                        if block_pos == (0, 8):
-                            _set("dynamite", (block_x, block_y - 1))
+                        # if block_pos == (0, 8):
+                        #     _set("dynamite", (block_x, block_y - 1))
 
                         # entitites
                         if not _spawned and False and chunk_index == (0, 0) and _chance(1 / 5):
@@ -279,27 +280,26 @@ class World:
                             # )
                         # forest tree
                         if _chance(1 / 24):
-                            ...
-                            # tree_height = _rand(10, 14)
-                            # tree_height = _nordis(9, 2)
-                            # for tree_yo in range(tree_height):
-                            #     wood_x, wood_y = block_x, block_y - tree_yo - 1
-                            #     wood_suffix = ""
-                            #     leaf_name = "leaf_f"
-                            #     leaf_chance = 1 / 2.4
-                            #     if tree_yo > 0:
-                            #         if _chance(leaf_chance):
-                            #             wood_suffix += "L"
-                            #             _set(leaf_name, (wood_x - 1, wood_y))
-                            #         if _chance(leaf_chance):
-                            #             wood_suffix += "R"
-                            #             _set(leaf_name, (wood_x + 1, wood_y))
-                            #         if tree_yo == tree_height - 1:
-                            #             wood_suffix += "T"
-                            #             _set(leaf_name, (wood_x, wood_y - 1))
-                            #     wood_suffix = "N" if not wood_suffix else wood_suffix
-                            #     wood_name = f"wood_f_vr{wood_suffix}"
-                            #     _set(wood_name, (wood_x, wood_y))
+                            tree_height = _rand(10, 14)
+                            tree_height = _nordis(9, 2)
+                            for tree_yo in range(tree_height):
+                                wood_x, wood_y = block_x, block_y - tree_yo - 1
+                                wood_suffix = ""
+                                leaf_name = "leaf_f"
+                                leaf_chance = 1 / 2.4
+                                if tree_yo > 0:
+                                    if _chance(leaf_chance):
+                                        wood_suffix += "L"
+                                        _set(leaf_name, (wood_x - 1, wood_y))
+                                    if _chance(leaf_chance):
+                                        wood_suffix += "R"
+                                        _set(leaf_name, (wood_x + 1, wood_y))
+                                    if tree_yo == tree_height - 1:
+                                        wood_suffix += "T"
+                                        _set(leaf_name, (wood_x, wood_y - 1))
+                                wood_suffix = "N" if not wood_suffix else wood_suffix
+                                wood_name = f"wood_f_vr{wood_suffix}"
+                                _set(wood_name, (wood_x, wood_y))
                     
                     elif biome == Biome.BEACH:
                         # rock
@@ -363,8 +363,9 @@ class World:
                 if chunk_index in self.source_to_children and self.source_to_children[chunk_index].get(block_pos, False):
                     light_shares: dict[tuple[Pos, Pos], int] = {}
                     # for all light children, check the distance to all other light sources
-                    for child_chunk_index, child_block_pos in self.source_to_children[chunk_index][block_pos].copy():
-                        check_radius = 2
+                    for child_chunk_index, child_block_pos in [*self.source_to_children[chunk_index][block_pos]]:
+                        #
+                        check_radius = 1
                         for yo in range(-check_radius, check_radius + 1):
                             for xo in range(-check_radius, check_radius + 1):
                                 nei_chunk_index = (chunk_index[0] + xo, chunk_index[1] + yo)
@@ -387,7 +388,7 @@ class World:
                             if max_light_value > 0:
                                 self.update_lightmap(child_chunk_index, child_block_pos, max_light_value)
                                 # transfer this child the other light source's child, because it has taken over it
-                                self.register_child_to_source(max_light_key, (child_chunk_index, child_block_pos))
+                                self.add_child_to_source(max_light_key, (child_chunk_index, child_block_pos))
                             else:
                                 self.update_lightmap(child_chunk_index, child_block_pos, 0)
                         else:
@@ -506,25 +507,32 @@ class World:
         return "stone"
 
     # L I G H T I N G  M E T H O D S
-    def register_child_to_source(self, src_key, child_key):
+    def add_child_to_source(self, src_key, child_key):
+        # add a new child to the source
         try:
             self.source_to_children[src_key[0]][src_key[1]].add(child_key)
         except KeyError:
-            if src_key == ((0, 0), (0, 7)):
-                test(src_key)
             self.source_to_children[src_key[0]][src_key[1]] = {child_key}
+        # assing a source to the child
         self.child_to_source[child_key] = src_key
     
     def remove_all_children_from_source(self, src_key):
+        # iterate over all children of the given source 
         for child_key in self.source_to_children[src_key[0]][src_key[1]]:
             if self.child_to_source[child_key] == src_key:
+                # remove source from the child
                 del self.child_to_source[child_key]
+        # remove all children from source
         del self.source_to_children[src_key[0]][src_key[1]]
     
     def remove_child_from_source(self, child_key):
+        # check if the child has any source parent
         if child_key in self.child_to_source:
+            # get the source
             src = self.child_to_source[child_key]
+            # remove the child form the source
             self.source_to_children[src[0]][src[1]].remove(child_key)
+            # remove the source from the child
             del self.child_to_source[child_key]
 
     def propagate_light(self, chunk_index, block_pos=None):
@@ -545,7 +553,7 @@ class World:
                 src_key = (chunk_index, block_pos)
                 queue.append((chunk_index, block_pos, light, src_key))
 
-                self.register_child_to_source(src_key, src_key)
+                self.add_child_to_source(src_key, src_key)
 
         # directions of propagation
         offsets = [(1, 0), (0, 1), (-1, 0), (0, -1)]
@@ -583,7 +591,7 @@ class World:
             child_key = (chunk_index, block_pos)
 
             self.remove_child_from_source(child_key)
-            self.register_child_to_source(src_key, child_key)
+            self.add_child_to_source(src_key, child_key)
 
         self.lightmap[chunk_index][block_pos] = light
 
@@ -667,7 +675,7 @@ class World:
         
         game.player.update(window.display, dt)
         
-        # A F T E R  L I G H T I N G
+        # L I G H T I N G  &  A F T E R
         if self.menu.lighting:
             for chunk_index, chunk_rect in zip(processed_chunks, chunk_rects):
                 # render the chunk lighting
@@ -686,7 +694,8 @@ class World:
                         blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
                         try:
                             write(window.display, "center", len(self.source_to_children[chunk_index][block_pos]), fonts.orbitron[12], pygame.Color("cyan"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
-                        except Exception:
+                        except: pass
+                        finally:
                             write(window.display, "center", self.lightmap[chunk_index][block_pos], fonts.orbitron[12], pygame.Color("orange"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
 
                         if self.screen_pos_to_tile(pygame.mouse.get_pos(), scroll) == (chunk_index, block_pos):
@@ -730,7 +739,7 @@ class World:
         y = self.breaking.pos[1] * BS + BS / 2
         # block image
         base, _ = blocks.norm(self.data[self.breaking.index][self.breaking.pos])
-        # modify the dropped image so it distinguished itself form its environment
+        # make dropped image smaller than og block image
         drop_img = pygame.transform.scale_by(blocks.images[base], 0.5)
         if nbwand(base, BF.NONSQUARE):
             pygame.draw.rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)

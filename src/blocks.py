@@ -73,16 +73,16 @@ def pure(name: str) -> tuple[str, list[str], str, list[str]]:
 
 
 def bwand(name: str, flag: BF):
-    return get_data(name) & flag
+    return get_flags(name) & flag
 
 
 def nbwand(name: str, flag: BF):
-    return not (get_data(name) & flag)
+    return not (get_flags(name) & flag)
 
 
-def get_data(name):
+def get_flags(name):
     base, _ = norm(name)
-    return data[base]
+    return flags[base]
 
 
 """
@@ -146,6 +146,12 @@ class BF(IntFlag):
     UNBREAKABLE = auto()
 
 
+@dataclass
+class Block:
+    name: str
+    flags: BF = BF.NONE
+
+
 class OreData:
     def __init__(self):
         self.veins = {
@@ -155,8 +161,10 @@ class OreData:
 
 ores = OreData()
 
+
+data = {}
     
-data = defaultdict(lambda: BF.NONE, {
+flags = defaultdict(lambda: BF.NONE, {
     "sand": BF.ORGANIC,
     "dynamite": BF.UTIL,
     "lotus": BF.ORGANIC,
@@ -176,7 +184,7 @@ data = defaultdict(lambda: BF.NONE, {
 params = {
     "air": {"light": MAX_LIGHT},
     "torch": {"light": MAX_LIGHT, "light_falloff": 1},
-    "dirt_f" | X.b: {"light": MAX_LIGHT}
+    "dirt_f" | X.b: {"light": MAX_LIGHT},
 }
 
 # B L O C K  G R O U P S
@@ -209,7 +217,8 @@ _spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
 for y, layer in enumerate(block_list):
     for x, name in enumerate(layer):
         images[name] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
-
+        data[name] = Block(name)
+    
 # additional dynamically generated blocks
 images["coal"] = images["base-ore"]
 images["iron"] = swap_palette(images["base-ore"], BLACK, (161, 157, 148))

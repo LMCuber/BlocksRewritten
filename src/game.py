@@ -42,8 +42,7 @@ class Game:
         # joystick
         self.joystick = joystick.JoystickManager()
         # UI / UX
-        # self.sword = get_sword(None)
-        self.sword = get_sickle()
+        self.sword = get_rock((120, 120, 120))
         # self.sword = get_axe((120, 120, 120))
         self.midblit = Midblit(self, window)
         # menu stuff

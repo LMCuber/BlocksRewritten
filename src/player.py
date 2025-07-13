@@ -49,12 +49,19 @@ class Inventory:
         return self[self.index]
 
     @property
+    def current_amount(self):
+        return self.values[self.index]
+
+    @property
     def num_items(self):
         return len(list(filter(None, self.values)))  # gets all truthy elements from self.values and returns its length
     
     @property
     def can_add(self):
         return self.num_items < self.max_items
+    
+    def use(self):
+        self.values[self.index] -= 1
     
     def add(self, item, amount=1):
         if not self.can_add:
@@ -288,10 +295,13 @@ class Player:
                             base, mods = blocks.norm(self.world.data[chunk_index][block_pos])
                             if "b" in mods:
                                 can_place = True
-                        if can_place:
-                            placed_name = self.inventory.current
-                            self.world.set(chunk_index, block_pos, placed_name)
-                            self.process_placed_block(chunk_index, block_pos, placed_name)
+                                
+                        if self.inventory.current_amount > 0:
+                            if can_place:
+                                placed_name = self.inventory.current
+                                self.world.set(chunk_index, block_pos, placed_name)
+                                self.process_placed_block(chunk_index, block_pos, placed_name)
+                                self.inventory.use()
                         
                     # edit the block
                     elif self.action == Action.INTERACT:
