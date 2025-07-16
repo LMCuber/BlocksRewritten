@@ -223,15 +223,15 @@ class Headbutter:
     
 
 # SYSTEMS -----------------------------------------------------
-@system(cache=True)
-class PhysicsSystem:
+class PhysicsSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(Transform, Hitbox, Sprite)
     
     def process(self, world, scroll, collisions: bool, chunks):
-        for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
             sprite.rot = 0
 
             # check if hitbox needs to be initialized by a Sprite
@@ -312,14 +312,14 @@ class PhysicsSystem:
                         sprite.rot = 90
 
 
-@system(cache=True)
-class AnimationSystem:
+class AnimationSystem(System):
     def __init__(self):
+        super().__init__(cache=True)
         self.set_cache(True)
         self.operates(Animation, Sprite)
     
     def process(self, chunks):
-        for ent, chunk, (anim, sprite) in self.get_components(0, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (anim, sprite) in self.get_components(0, chunks=chunks):
             # safe
             if sprite.anim_skin is None:
                 return
@@ -334,15 +334,15 @@ class AnimationSystem:
                 sprite.anim = 0
 
 
-@system(cache=True)
-class ChunkRepositioningSystem:
+class ChunkRepositioningSystem(System):
     def __init__(self):
+        super().__init__(cache=True)
         self.set_cache(True)
         self.operates(Hitbox)
     
     def process(self, chunks):
         return
-        for ent, chunk, arch, (hitbox,) in self.get_components(0, chunks=chunks, archetype=True):
+        for ent_index, chunk, arch, ent_id, (hitbox,) in self.get_components(0, chunks=chunks, archetype=True):
             # don't try to move to adjacent chunk if chunk is None (unbound)
             if chunk is None:
                 continue
@@ -353,25 +353,25 @@ class ChunkRepositioningSystem:
             perc_y = ((y / BS) - (chunk[1] * CH)) / CH
             # check if out of bounds and relocate
             if perc_x < 0:
-                self.relocate(chunk, arch, ent, (chunk[0] - 1, chunk[1]))
+                self.relocate(chunk, arch, ent_id, ent_index, (chunk[0] - 1, chunk[1]))
             elif perc_x >= 1:
-                self.relocate(chunk, arch, ent, (chunk[0] + 1, chunk[1]))
+                self.relocate(chunk, arch, ent_id, ent_index, (chunk[0] + 1, chunk[1]))
             elif perc_y < 0:
-                self.relocate(chunk, arch, ent, (chunk[0], chunk[1] - 1))
+                self.relocate(chunk, arch, ent_id, ent_index, (chunk[0], chunk[1] - 1))
             elif perc_y >= 1:
-                self.relocate(chunk, arch, ent, (chunk[0], chunk[1] + 1))
+                self.relocate(chunk, arch, ent_id, ent_index, (chunk[0], chunk[1] + 1))
 
 
-@system(cache=True)
-class RenderSystem:
+class RenderSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(Transform, Hitbox, Sprite)
     
     def process(self, scroll, hitboxes, chunks):
         num = 0
-        for ent, chunk, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (tr, hitbox, sprite) in self.get_components(0, chunks=chunks):
             num += 1
             # get which image
             image = sprite.images[int(sprite.anim)]
@@ -398,15 +398,15 @@ class RenderSystem:
         return num
 
 
-@system(cache=True)
-class PlayerFollowerSystem:
+class PlayerFollowerSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(PlayerFollower, Transform, Hitbox)
     
     def process(self, player, chunks):
-        for ent, chunk, (pf, tr, hitbox) in self.get_components(0, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (pf, tr, hitbox) in self.get_components(0, chunks=chunks):
             if pf.started_following:
                 if ticks() - pf.last_followed >= pf.follow_delay:
                     if hitbox.centerx > player.rect.centerx and tr.vel[0] > 0:
@@ -419,23 +419,23 @@ class PlayerFollowerSystem:
                 pf.started_following = True
 
 
-@system(cache=True)
-class DebugSystem:
+class DebugSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(DebugFlag, Transform, Health)
     
     def process(self, scroll, chunks):
-        for ent, chunk, (flags, tr, health) in self.get_components(0, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (flags, tr, health) in self.get_components(0, chunks=chunks):
             blit_pos = (tr.pos[0] - scroll[0], tr.pos[1] - scroll[1])
             if flags & DebugFlags.SHOW_CHUNK:
                 write(self.display, "center", chunk, fonts.orbitron[20], BROWN, blit_pos[0], blit_pos[1] - 20)
 
 
-@system(cache=True)
-class CollisionSystem:
+class CollisionSystem(System):
     def __init__(self):
+        super().__init__(cache=True)
         self.set_cache(True)
         self.operates(CollisionFlag, Transform, Sprite)  # regular collisions and senders
         self.operates(CollisionFlag, Transform, Sprite, Health)  # collisions of receivers
@@ -447,14 +447,14 @@ class CollisionSystem:
         since I already use a chunk system which is efficient enough
         """
         # check the damage inflicters
-        for ent, chunk, (col_flag, tr, sprite) in self.get_components(0, chunks=chunks):
-            s_ent, s_chunk, s_col_flag, s_tr, s_sprite = ent, chunk, col_flag, tr, sprite
+        for ent_index, chunk, arch, ent_id, (col_flag, tr, sprite) in self.get_components(0, chunks=chunks):
+            s_ent_index, s_chunk, s_col_flag, s_tr, s_sprite = ent_index, chunk, col_flag, tr, sprite
             rect = pygame.Rect(s_tr.pos, s_sprite.rect.size)
             s_rect = rect
             #
             if s_tr.active and s_col_flag & CollisionFlags.SEND:
                 # check for damage receivers
-                for r_ent, r_chunk, (r_col_flag, r_tr, r_sprite, r_health) in self.get_components(1, chunks=chunks):
+                for r_ent_index, r_chunk, arch, ent_id, (r_col_flag, r_tr, r_sprite, r_health) in self.get_components(1, chunks=chunks):
                     if r_col_flag & CollisionFlags.RECV and not (s_col_flag & CollisionFlags.INACTIVE):
                         # HIT!!!
                         r_rect = pygame.Rect(r_tr.pos, r_sprite.rect.size)
@@ -468,25 +468,25 @@ class CollisionSystem:
                             )
                             # check if the receiver is dead, if so, kill it
                             if r_health.value <= 0:
-                                self.delete(1, r_ent, r_chunk)
+                                self.delete(1, r_ent_index, r_chunk)
                             # make the bullet inactive
                             s_col_flag.set(CollisionFlags.INACTIVE)
         # check the headbutters
-        for ent, chunk, (tr, hitbox, sprite, butt) in self.get_components(2, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (tr, hitbox, sprite, butt) in self.get_components(2, chunks=chunks):
             # check for collision with the player
             if player.rect.colliderect(hitbox):
                 player.yvel = -10
 
 
-@system(cache=True)
-class DamageTextSystem:
+class DamageTextSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(Transform, DamageText)
     
     def process(self, scroll, chunks):
-        for ent, chunk, (tr, dam) in self.get_components(0, chunks=chunks):
+        for ent_index, chunk, arch, ent_id, (tr, dam) in self.get_components(0, chunks=chunks):
             # init the offset
             if not dam.inited:
                 dam.offset = tr.pos[1] - dam.max_y
@@ -496,30 +496,30 @@ class DamageTextSystem:
             # apply translusence and destroy when needed
             dam.img.set_alpha(((tr.pos[1] - dam.max_y) / dam.offset) * 255)
             if dam.img.get_alpha() <= 10:
-                self.delete(0, ent, chunk)
+                self.delete(0, ent_index, chunk)
             # render the font
             blit_pos = [tr.pos[0] - scroll[0], tr.pos[1] - scroll[1]]
             self.display.blit(dam.img, blit_pos)
 
 
-@system(cache=True)
-class DropSystem:
+class DropSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(Drop, Hitbox)
     
     def process(self, player, scroll, chunks):
-        for ent, chunk, arch, (drop, hitbox) in self.get_components(0, chunks=chunks, archetype=True):
+        for ent_index, chunk, arch, ent_id, (drop, hitbox) in self.get_components(0, chunks=chunks, archetype=True):
             if hitbox.colliderect(player.rect):
                 if player.inventory.can_add:
                     player.inventory.add(drop.block, 1)
-                    self.delete(arch, ent, chunk)
+                    self.delete(arch, ent_id, ent_index, chunk)
 
 
-@system(cache=True)
-class DisplayHealthSystem:
+class DisplayHealthSystem(System):
     def __init__(self, display):
+        super().__init__(cache=True)
         self.display = display
         self.set_cache(True)
         self.operates(Health, Transform, Sprite)

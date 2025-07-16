@@ -1,0 +1,6 @@
+pygame-ce
+colorama
+PyYAML
+opensimplex
+scipy
+numpy
