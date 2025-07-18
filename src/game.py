@@ -56,7 +56,6 @@ class Game:
         self.chunk_repositioning_system = ChunkRepositioningSystem()
         self.render_system = RenderSystem(window.display)
         self.physics_system = PhysicsSystem(window.display)
-        self.animation_system = AnimationSystem()
         self.player_follower_system = PlayerFollowerSystem(window.display)
         # self.debug_system = DebugSystem(window.display)
         self.collision_system = CollisionSystem()
@@ -65,10 +64,9 @@ class Game:
         self.drop_system = DropSystem(window.display)
     
     def process_systems(self, processed_chunks):
+        return
         self.chunk_repositioning_system.process(chunks=processed_chunks)
-        self.animation_system.process(chunks=processed_chunks)
-        self.physics_system.process(self.world, self.scroll, menu.collisions, chunks=processed_chunks)
-        # self.num_rendered_entities = self.render_system.process(self.scroll, menu.hitboxes, chunks=processed_chunks)
+        self.physics_system.process(self.world, self.scroll, menu.hitboxes, menu.collisions, chunks=processed_chunks)
         self.player_follower_system.process(self.player, chunks=processed_chunks)
         self.collision_system.process(self.player, chunks=processed_chunks)
         self.damage_text_system.process(self.scroll, chunks=processed_chunks)
@@ -160,8 +158,10 @@ class Game:
             self.apply_scroll(0.1)
 
             # -------- P L A Y ---------------------------
+            num_blocks = 0
             if self.state == States.PLAY:
                 # draw and update the terrain
+                self.num_rendered_entities = 0
                 num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll, self, dt)
                 processed_chunks.append(None)  # the "global" chunk, so entities that update always
                 
@@ -194,7 +194,6 @@ class Game:
             # display debugging / performance stats
             write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 70)
             write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 90)
-            # write(window.display, "topleft", f"chunks : {len(processed_chunks)} -> {processed_chunks}", fonts.orbitron[15], self.stat_color, 5, 60)
             write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 130)
             write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 150)
 

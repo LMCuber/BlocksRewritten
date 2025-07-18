@@ -151,7 +151,7 @@ class Player:
 
     def draw(self, display):
         # get the current animation image
-        self.images, offset, anim_vel, _ = AnimData.get(self.anim_skin, self.anim_mode)
+        self.images, self.fimages, offset, anim_vel, _ = AnimData.get(self.anim_skin, self.anim_mode)
         self.anim_index += anim_vel
         try:
             image = self.images[int(self.anim_index)]

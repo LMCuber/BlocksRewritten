@@ -1,7 +1,7 @@
 import cProfile
 import pstats
-from pathlib import Path
 import tomllib as toml
+from pathlib import Path
 #
 from src.game import Game
 
@@ -12,7 +12,13 @@ def run(config):
 
 
 def profile(config):
-    cProfile.run("run(config=config)", filename=Path("logs", "out.prof"))
+    Path("logs").mkdir(exist_ok=True)
+
+    if config["game"]["profile_to_file"]:
+        cProfile.run("run(config=config)", filename=Path("logs", "out.prof"))
+    else:
+        cProfile.run("run(config=config)", sort="cumtime")
+
     with open(Path("logs", "out.txt"), "w") as f:
         stats = pstats.Stats(str(Path("logs", "out.prof")), stream=f)
         stats.sort_stats("cumulative")

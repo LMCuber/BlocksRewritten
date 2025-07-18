@@ -136,7 +136,7 @@ class World:
                     if return_name:
                         ret.append((block_rect, base))
                     else:
-                        if all(x not in mods for x in ["b", "B"]) and nbwand(base, BF.WALKABLE):
+                        if "b" not in mods and nbwand(base, BF.WALKABLE):
                             ret.append(block_rect)
         return ret
     
@@ -259,15 +259,18 @@ class World:
                         #     _set("dynamite", (block_x, block_y - 1))
 
                         # entitites
-                        if not _spawned and False and chunk_index == (0, 0) and _chance(1 / 5):
-                            create_entity(
-                                Transform([0, 0], [2.1, 0], flag=TransformFlag(TransformFlags.MOB), gravity=0.03),
-                                Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (0, 0), anchor="midbottom"),
-                                Sprite.from_path(Path("res", "images", "mobs", "bok-bok", "walk.png")),
-                                PlayerFollower(0),
-                                Headbutter(30),
-                                chunk=chunk_index
-                            )
+                        if not _spawned and chunk_index == (0, 0):
+                            for _ in range(3000):
+                                create_entity(
+                                    Transform([0, 0], [randf(0.1, 0.5), 0], gravity=0.03),
+                                    Mob(),
+                                    Hitbox((block_pos[0] * BS+rand(-500, 500), block_pos[1] * BS - BS * 6+rand(-500, 500)), (0, 0), anchor="midbottom"),
+                                    # Sprite.from_img(tinysaurus()),
+                                    Sprite.from_img(random.choice(list(blocks.images.values()))),
+                                    PlayerFollower(0),
+                                    Headbutter(30),
+                                    chunk=chunk_index
+                                )
                             _spawned = True
                         if _chance(1 / 5) and chunk_x == 0:
                             ...
@@ -647,7 +650,7 @@ class World:
 
                 num_blocks += len(self.data[chunk_index])
                 # for block_pos, name in self.data[chunk_index].items():
-                #     num_blocks += 1
+                #     # num_blocks += 1
 
                 #     continue
 
@@ -655,7 +658,8 @@ class World:
                 #     blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
                     
                 #     # render the block
-                #     window.display.blit(blocks.images[name], blit_pos)
+                #     if -BS <= blit_pos[0] <= window.width and -BS <= blit_pos[1] <= window.height:
+                #         window.display.blit(blocks.images[name], blit_pos)
 
                 #     # add a block that can be interacted with
                 #     block_rects.append(pygame.Rect(*blit_pos, BS, BS))
@@ -663,15 +667,11 @@ class World:
                 # ! render chunk surface !
                 display.blit(self.chunk_surfaces[chunk_index], chunk_rect)
 
-                # # ! render lights !
-                # if self.menu.lighting:
-                #     display.blit(self.light_surfaces[chunk_index], chunk_rect)
-
                 processed_chunks.append(chunk_index)
         
         #  B E F O R E  L I G H T I N G
         for chunk_index in processed_chunks:
-            game.render_system.process(game.scroll, self.menu.hitboxes, chunks=[chunk_index])
+            game.num_rendered_entities += game.render_system.process(game.scroll, self.menu.hitboxes, chunks=[chunk_index])
         
         game.player.update(window.display, dt)
         
@@ -735,8 +735,8 @@ class World:
 
     def drop(self):
         # coordinates for the drop
-        x = self.breaking.pos[0] * BS + BS / 2
-        y = self.breaking.pos[1] * BS + BS / 2
+        x = self.breaking.pos[0] * BS
+        y = self.breaking.pos[1] * BS
         # block image
         base, _ = blocks.norm(self.data[self.breaking.index][self.breaking.pos])
         # make dropped image smaller than og block image
@@ -745,8 +745,13 @@ class World:
             pygame.draw.rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)
         #
         create_entity(
-            Transform([0, 0], [0, 0], gravity=0.03, sine=(0.35, 4)),
-            Hitbox((x - BS / 2, y - BS / 2), (0, 0), anchor="midbottom"),
+            # Transform(
+            #     [0, 0],
+            #     [0, 0],
+            #     gravity=0.03,
+            #     sine=(0.35, 4)
+            # ),
+            Hitbox((x, y), (0, 0), anchor="center"),
             Sprite.from_img(drop_img),
             Drop(base),
             chunk=self.breaking.index
