@@ -24,13 +24,14 @@ class Game:
         # rendering and frames
         self.clock = pygame.time.Clock()
         self.init_systems()
-        self.shader = ModernglShader(
-            Path("src", "shaders", "default.vert"),
-            Path("src", "shaders", "default.frag")
-        )
+        if not window.gpu:
+            self.shader = ModernglShader(
+                Path("src", "shaders", "default.vert"),
+                Path("src", "shaders", "default.frag")
+            )
         self.dead_zone = None
         # runtime objects
-        self.world = world.World(menu)
+        self.world = world.World(menu, **self.config["world"])
         self.player = player.Player(self, self.world, menu)
         self.fake_scroll = [0, 0]
         self.scroll = [0, 0]
@@ -99,9 +100,6 @@ class Game:
 
         self.shader.send("grayscale", self.substate == Substates.MENU)
 
-        # self.shader.send("lightPosWin", self.player.rect.move(-self.scroll[0], -self.scroll[1]).center)
-        # self.shader.send("lightPowerWin", 0)
-
     def apply_scroll(self, m):
         self.fake_scroll[0] += (self.player.rect.x - self.fake_scroll[0] - window.width / 2 + self.player.rect.width / 2) * m
         self.fake_scroll[1] += (self.player.rect.y - self.fake_scroll[1] - window.height / 2 + self.player.rect.height / 2) * m
@@ -118,7 +116,7 @@ class Game:
         self.running = True
         while self.running:
             window.fps_cap = menu.fps_cap.value
-            dt = self.clock.tick(window.fps_cap) / (1 / 144 * 1000)
+            dt = self.clock.tick(0) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -152,7 +150,7 @@ class Game:
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     pass
 
-            window.display.fill(SKY_BLUE)
+            pgb.fill_display(window.display, SKY_BLUE)
 
             # scroll the display
             self.apply_scroll(0.1)
@@ -178,7 +176,7 @@ class Game:
             pgw.draw_and_update_widgets()
 
             # display the fps
-            write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], self.stat_color, 5, 5)
+            pgb.write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], self.stat_color, 5, 5)
 
             # display important parameters
             params = ""
@@ -186,28 +184,36 @@ class Game:
                 params += "profiled | "
             if window.vsync:
                 params += "vsync | "
+            params += ("GPU" if window.gpu else "CPU") + " | "
+            params += ("cached chunks" if self.world.cache_chunk_textures else "iterated chunks") + " | "
             params = params.removesuffix(" | ")
             if params:
                 params = "— " + params
-                write(window.display, "topleft", params, fonts.orbitron[12], BLACK, 5, 30)
+                pgb.write(window.display, "topleft", params, fonts.orbitron[12], BLACK, 5, 30)
 
             # display debugging / performance stats
-            write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 70)
-            write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 90)
-            write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 130)
-            write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 150)
+            pgb.write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 70)
+            pgb.write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 90)
+            pgb.write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 130)
+            pgb.write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 150)
 
             # --- DO ALL RENDERING BEFORE THIS CODE BELOW ---
-            self.send_data_to_shader()
+            if not window.gpu:
+                # send relevant uniform data to the shader
+                self.send_data_to_shader()
 
-            # render the shader
-            self.shader.render()
+                # render the shader
+                self.shader.render()
 
             # refreshes the window so you can see it
-            pygame.display.flip()
+            if window.gpu:
+                window.display.present()
+            else:
+                pygame.display.flip()
 
             # you won't guess what this function does
-            self.shader.release_all_textures()
+            if not window.gpu:
+                self.shader.release_all_textures()
 
             # debug quit
             if ticks() - self.last_start >= self.config["game"].get("timer", float("inf")):

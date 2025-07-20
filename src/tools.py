@@ -1095,15 +1095,15 @@ def get_staff(base_color):
 
 
 def get_tool_crafter():
-    tool_crafter_img = timgload3("Images", "Midblits", "tool-crafter.png")
+    tool_crafter_img = tpgb.imgload3("Images", "Midblits", "tool-crafter.png")
     w, h = 550, 350
     tool_crafter_img = pygame.Surface((w, h), pygame.SRCALPHA)
-    pygame.draw.rect(tool_crafter_img, (*NAVY_BLUE[:3], 220), (0, 0, w, h))
-    pygame.draw.rect(tool_crafter_img, NAVY_BLUE, (0, 0, tool_crafter_sword_width, h))
-    pygame.draw.rect(tool_crafter_img, BLACK, (0, 0, w, h), 3)
-    pygame.draw.rect(tool_crafter_img, BLACK, (0, 0, tool_crafter_sword_width, h), 3)
-    # write(tool_crafter_img, "topleft", "wt% Fe", orbit_fonts[16], BLACK, 136, 8)
-    # write(tool_crafter_img, "topleft", "wt% C", orbit_fonts[16], BLACK, 220, 8)
+    pgb.draw_rect(tool_crafter_img, (*NAVY_BLUE[:3], 220), (0, 0, w, h))
+    pgb.draw_rect(tool_crafter_img, NAVY_BLUE, (0, 0, tool_crafter_sword_width, h))
+    pgb.draw_rect(tool_crafter_img, BLACK, (0, 0, w, h), 3)
+    pgb.draw_rect(tool_crafter_img, BLACK, (0, 0, tool_crafter_sword_width, h), 3)
+    # pgb.write(tool_crafter_img, "topleft", "wt% Fe", orbit_fonts[16], BLACK, 136, 8)
+    # pgb.write(tool_crafter_img, "topleft", "wt% C", orbit_fonts[16], BLACK, 220, 8)
     pygame.image.save(tool_crafter_img, path("Images", "Surfaces", "tool-crafter.png"))
 
 

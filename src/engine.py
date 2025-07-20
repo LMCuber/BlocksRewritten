@@ -11,6 +11,10 @@ from math import log as ln
 import time
 from colorama import Fore
 import colorama
+from contextlib import suppress
+#
+import pyengine.pgbasics as pgb
+#
 
 
 colorama.init(autoreset=True)
@@ -54,25 +58,6 @@ def cceil(n):
         return ceil(n)
     else:
         return floor(n)
-
-
-def imgload(*path, scale=1, frames=None, convert=False, convert_alpha=True):
-    img = pygame.image.load(Path(*path))
-    if convert:
-        img = img.convert()
-    elif convert_alpha:
-        img = img.convert_alpha()
-    if frames is None:
-        return pygame.transform.scale_by(img, scale)
-    elif frames == 1:
-        return [pygame.transform.scale_by(img, scale)]
-    else:
-        imgs = []
-        w, h = img.width / frames, img.height
-        for x in range(frames):
-            imgs.append(pygame.transform.scale_by(img.subsurface(x * w, 0, w, h), scale))
-        return imgs
-
 
 
 # CLASSES

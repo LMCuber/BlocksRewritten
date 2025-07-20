@@ -45,10 +45,16 @@ class Breaking:
     index: tuple[int, int] | None = None
     pos: tuple[int, int] | None = None
     anim: int = 0
+    rect: pygame.Rect | None = None
 
 
 class World:
-    def __init__(self, menu):
+    def __init__(self, menu, **kwargs):
+        # kwargs
+        self.cache_chunk_textures: bool
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
+        
         # params
         self.menu = menu
 
@@ -57,6 +63,8 @@ class World:
         self.late_data = {}
         self.bg_data = {}
         self.chunk_surfaces = {}
+        if window.gpu:
+            self.chunk_textures = {}
         self.chunk_colors = {}
         self.chunk_queue = deque()
 
@@ -74,9 +82,6 @@ class World:
         self.seed = uuid.uuid4().int
         osim.seed(self.seed)
         self.random = random.Random(self.seed)
-
-        # misc
-        self.lates = []
     
     # W O R L D  D A T A  H E L P E R  F U N C T I O N S
     @property
@@ -264,7 +269,7 @@ class World:
                                 create_entity(
                                     Transform([0, 0], [randf(0.1, 0.5), 0], gravity=0.03),
                                     Mob(),
-                                    Hitbox((block_pos[0] * BS+rand(-500, 500), block_pos[1] * BS - BS * 6+rand(-500, 500)), (0, 0), anchor="midbottom"),
+                                    Hitbox((block_pos[0] * BS+rand(-500, 500), block_pos[1] * BS - BS * 6+rand(-250, 250)), (30, 30), anchor="midbottom"),
                                     # Sprite.from_img(tinysaurus()),
                                     Sprite.from_img(random.choice(list(blocks.images.values()))),
                                     PlayerFollower(0),
@@ -419,11 +424,18 @@ class World:
         # update chunk surface
         base, mods = blocks.norm(name)
         if "b" in mods:
-            image = blocks.images[base | X.b]
+            image = blocks.surf_images[base | X.b]
         else:
-            image = blocks.images[base]
-        self.chunk_surfaces[chunk_index].blit(image, (block_pos[0] % CW * BS, block_pos[1] % CH * BS))
-                
+            image = blocks.surf_images[base]
+
+        # cache chunk texture if wanted
+        if self.cache_chunk_textures:
+            # update surface -> texture method
+            self.chunk_surfaces[chunk_index].blit(image, (block_pos[0] % CW * BS, block_pos[1] % CH * BS))
+            if window.gpu:
+                self.chunk_textures[chunk_index] = pgb.T(self.chunk_surfaces[chunk_index])
+            # update texture directly method
+
         # update lighting surface
         if propagate_light:
             self.propagate_light(chunk_index, block_pos)
@@ -440,6 +452,8 @@ class World:
         chunk_x, chunk_y = chunk_index
         self.data[chunk_index] = {}
         self.chunk_surfaces[chunk_index] = pygame.Surface((CW * BS, CH * BS), pygame.SRCALPHA)
+        if window.gpu and self.cache_chunk_textures:
+            self.chunk_textures[chunk_index] = pgb.T(self.chunk_surfaces[chunk_index])
         self.chunk_colors[chunk_index] = [rand(0, 255) for _ in range(3)]
         self.bg_data[chunk_index] = {}
         self.init_light(chunk_index)
@@ -604,23 +618,15 @@ class World:
         final_light_value = min(final_light_value, MAX_LIGHT - 1)
         alpha = (MAX_LIGHT - 1 - final_light_value) / (MAX_LIGHT - 1) * 255
         blit_pos = (block_pos[0] % CW * BS, block_pos[1] % CH * BS)
-        pygame.draw.rect(self.light_surfaces[chunk_index], (0, 0, 0, alpha), (*blit_pos, BS, BS))
+        # pgb.draw_rect(self.light_surfaces[chunk_index], (0, 0, 0, alpha), (*blit_pos, BS, BS))
     
     # U P D A T E  L O O P
     def update(self, display, scroll, game, dt):
-        # lates
-        for pos in self.lates:
-            pygame.draw.aacircle(display, RED, pos, 3)
-
         # actual
         num_blocks = 0
         processed_chunks = []
         chunk_rects = []
         block_rects = []
-        late_rects = []
-
-        # clear the lightmap
-        # self.lightmap.fill(BLACK)
 
         # R E N D E R  B L O C K S
         for yo in range(self.num_ver_chunks):
@@ -649,43 +655,47 @@ class World:
                     continue
 
                 num_blocks += len(self.data[chunk_index])
-                # for block_pos, name in self.data[chunk_index].items():
-                #     # num_blocks += 1
 
-                #     continue
+                if not self.cache_chunk_textures:
+                    for block_pos, name in self.data[chunk_index].items():
+                        # num_blocks += 1
 
-                #     block_x, block_y = block_pos
-                #     blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
-                    
-                #     # render the block
-                #     if -BS <= blit_pos[0] <= window.width and -BS <= blit_pos[1] <= window.height:
-                #         window.display.blit(blocks.images[name], blit_pos)
+                        block_x, block_y = block_pos
+                        blit_rect = pygame.Rect(block_x * BS - scroll[0], block_y * BS - scroll[1], BS, BS)
+                        
+                        # render the block
+                        if 0 <= blit_rect.right <= window.width + BS and 0 <= blit_rect.bottom <= window.height + BS:
+                            window.display.blit(blocks.images[name], blit_rect)
 
-                #     # add a block that can be interacted with
-                #     block_rects.append(pygame.Rect(*blit_pos, BS, BS))
+                        # add a block that can be interacted with
+                        block_rects.append(blit_rect)
 
                 # ! render chunk surface !
-                display.blit(self.chunk_surfaces[chunk_index], chunk_rect)
+                if self.cache_chunk_textures:
+                    if window.gpu:
+                        display.blit(self.chunk_textures[chunk_index], chunk_rect)
+                    else:
+                        display.blit(self.chunk_surfaces[chunk_index], chunk_rect)
 
                 processed_chunks.append(chunk_index)
         
         #  B E F O R E  L I G H T I N G
         for chunk_index in processed_chunks:
-            game.num_rendered_entities += game.render_system.process(game.scroll, self.menu.hitboxes, chunks=[chunk_index])
+            game.num_rendered_entities += game.render_system.process(game.scroll, self.menu.hitboxes, window.gpu, chunks=[chunk_index])
         
         game.player.update(window.display, dt)
         
         # L I G H T I N G  &  A F T E R
-        if self.menu.lighting:
+        if self.menu.lighting and False:
             for chunk_index, chunk_rect in zip(processed_chunks, chunk_rects):
                 # render the chunk lighting
                 display.blit(self.light_surfaces[chunk_index], chunk_rect)
 
                 # show chunk borders
                 if self.menu.chunk_borders.checked:
-                    pygame.draw.rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
-                    write(display, "center", chunk_index, fonts.orbitron[20], WHITE, *chunk_rect.center)
-                    write(display, "center", (chunk_index[0] * CW, chunk_index[1] * CH), fonts.orbitron[12], WHITE, chunk_rect.centerx, chunk_rect.centery + 30)
+                    pgb.draw_rect(display, self.chunk_colors[chunk_index], chunk_rect, 1)
+                    pgb.write(display, "center", chunk_index, fonts.orbitron[20], WHITE, *chunk_rect.center)
+                    pgb.write(display, "center", (chunk_index[0] * CW, chunk_index[1] * CH), fonts.orbitron[12], WHITE, chunk_rect.centerx, chunk_rect.centery + 30)
                 
                 # debug stuff per block
                 if self.menu.debug_lighting:
@@ -693,28 +703,29 @@ class World:
                         block_x, block_y = block_pos
                         blit_pos = (block_x * BS - scroll[0], block_y * BS - scroll[1])
                         try:
-                            write(window.display, "center", len(self.source_to_children[chunk_index][block_pos]), fonts.orbitron[12], pygame.Color("cyan"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
-                        except: pass
+                            pgb.write(window.display, "center", len(self.source_to_children[chunk_index][block_pos]), fonts.orbitron[12], pygame.Color("cyan"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
+                        except Exception:
+                            pass
                         finally:
-                            write(window.display, "center", self.lightmap[chunk_index][block_pos], fonts.orbitron[12], pygame.Color("orange"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
+                            pgb.write(window.display, "center", self.lightmap[chunk_index][block_pos], fonts.orbitron[12], pygame.Color("orange"), blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
 
                         if self.screen_pos_to_tile(pygame.mouse.get_pos(), scroll) == (chunk_index, block_pos):
                             if chunk_index in self.source_to_children and block_pos in self.source_to_children[chunk_index]:
                                 for child_index, child_pos in self.source_to_children[chunk_index][block_pos]:
                                     bp = (child_pos[0] * BS - scroll[0], child_pos[1] * BS - scroll[1])
-                                    late_rects.append((*bp, BS, BS))
                             
                             elif (chunk_index, block_pos) in self.child_to_source:
                                 src_pos = self.child_to_source[(chunk_index, block_pos)][1]
                                 bp = (src_pos[0] * BS - scroll[0], src_pos[1] * BS - scroll[1])
-                                late_rects.append((*bp, BS, BS))
-
-        for rect in late_rects:
-            pygame.draw.rect(window.display, RED, rect, 1)
 
         # show the breaking block
         if (self.breaking.index, self.breaking.pos) != (None, None):
-            breaking_pos = (self.breaking.pos[0] * BS - scroll[0], self.breaking.pos[1] * BS - scroll[1])
+            # initialize the rect of breaking if it's still None (only once)
+            if self.breaking.rect is None:
+                self.breaking.rect = blocks.breaking_sprs[0].get_rect()
+            # set its position
+            self.breaking.rect.topleft = (self.breaking.pos[0] * BS - scroll[0], self.breaking.pos[1] * BS - scroll[1])
+
             # check if the breaking actually breaks
             try:
                 blocks.breaking_sprs[int(self.breaking.anim)]
@@ -728,7 +739,7 @@ class World:
                 self.breaking.pos = None
             else:
                 # render the block breaking spritesheet
-                display.blit(blocks.breaking_sprs[int(self.breaking.anim)], breaking_pos)
+                display.blit(blocks.breaking_sprs[int(self.breaking.anim)], self.breaking.rect)
 
         # return information
         return num_blocks, processed_chunks, block_rects
@@ -742,7 +753,7 @@ class World:
         # make dropped image smaller than og block image
         drop_img = pygame.transform.scale_by(blocks.images[base], 0.5)
         if nbwand(base, BF.NONSQUARE):
-            pygame.draw.rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)
+            pgb.draw_rect(drop_img, BLACK, (0, 0, *drop_img.size), 1)
         #
         create_entity(
             # Transform(

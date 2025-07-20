@@ -1,9 +1,11 @@
 from __future__ import annotations
 from collections import defaultdict
+from functools import lru_cache
 import os
 import re
 #
 from pyengine.pgbasics import *
+import pyengine.pgbasics as pgb
 #
 from .engine import *
 from .window import *
@@ -47,6 +49,7 @@ def palettize_img(img, palette):
 Block modifications:
     b - background block
 """
+@lru_cache
 def norm(name: str) -> tuple[str, list[str]]:
     """
     Returns the normalized version of a block name, devoid of all modifiers e.g. stone|b (background stone) -> stone
@@ -59,6 +62,7 @@ def norm(name: str) -> tuple[str, list[str]]:
     return base, mods
 
 
+@lru_cache
 def pure(name: str) -> tuple[str, list[str], str, list[str]]:
     """
     Returns the pure version, as well as the normalized version, of a block, which is its most important part.
@@ -72,14 +76,17 @@ def pure(name: str) -> tuple[str, list[str], str, list[str]]:
     return pure, mods, vers
 
 
+@lru_cache
 def bwand(name: str, flag: BF):
     return get_flags(name) & flag
 
 
+@lru_cache
 def nbwand(name: str, flag: BF):
     return not (get_flags(name) & flag)
 
 
+@lru_cache
 def get_flags(name):
     base, _ = norm(name)
     return flags[base]
@@ -88,6 +95,7 @@ def get_flags(name):
 """
 "Repr" here means a player readable block name, such as "wood_f_vrN" -> "forest wood variation 1"
 """
+@lru_cache
 def repr(name):
     pure_, _, vers = pure(name)
     ret = pure_
@@ -146,12 +154,6 @@ class BF(IntFlag):
     UNBREAKABLE = auto()
 
 
-@dataclass
-class Block:
-    name: str
-    flags: BF = BF.NONE
-
-
 class OreData:
     def __init__(self):
         self.veins = {
@@ -162,8 +164,6 @@ class OreData:
 ores = OreData()
 
 
-data = {}
-    
 flags = defaultdict(lambda: BF.NONE, {
     "sand": BF.ORGANIC,
     "dynamite": BF.UTIL,
@@ -192,8 +192,8 @@ pillars = [f"pillar_vr{i}" for i in range(4)]
 
 # B L O C K  A S S E T S
 d = Path("res", "images", "palettes")
-palette_img = imgload("res", "images", "palettes", choice(os.listdir(d)))
-palette_img = imgload("res", "images", "palettes", "2000.png")
+palette_img = pgb.imgload("res", "images", "palettes", choice(os.listdir(d)))
+palette_img = pgb.imgload("res", "images", "palettes", "2000.png")
 
 block_list = [
     ["air",             "bucket",           "apple",           "bamboo",          "cactus",          "watermelon",       "rock",        "chicken",     "leaf_f",       "",            "",            ""],
@@ -210,25 +210,27 @@ block_list = [
     ["",                "corn-crop_vr1.1",  "corn-crop_vr2.1", "corn-crop_vr3.1", "corn-crop_vr4.1", "cattail-top",      "pampas-top",  "",            "dirt_f",       "dirt_t",      "",            "pillar_vr1"],
     ["corn-crop_vr0.0", "corn-crop_vr1.0",  "corn-crop_vr2.0", "corn-crop_vr3.0", "corn-crop_vr4.0", "cattail",          "pampas",      "",            "",             "",            "",            "pillar_vr0"],
 ]
-images = {}
-_spritesheet = imgload("res", "images", "spritesheets", "blocks.png")
+surf_images = {}
+_spritesheet = cpu_imgload("res", "images", "spritesheets", "blocks.png")
 
-# load block images
+# load block surf_images
 for y, layer in enumerate(block_list):
     for x, name in enumerate(layer):
-        images[name] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
-        data[name] = Block(name)
+        surf_images[name] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
     
 # additional dynamically generated blocks
-images["coal"] = images["base-ore"]
-images["iron"] = swap_palette(images["base-ore"], BLACK, (161, 157, 148))
-images["diamond"] = swap_palette(images["base-ore"], BLACK, (185, 242, 255))
+surf_images["coal"] = surf_images["base-ore"]
+surf_images["iron"] = swap_palette(surf_images["base-ore"], BLACK, (161, 157, 148))
+surf_images["diamond"] = swap_palette(surf_images["base-ore"], BLACK, (185, 242, 255))
 
 # create background blocks
-for name, image in images.copy().items():
-    images[name | X.b] = darken(images[name], 0.7)
+for name, image in surf_images.copy().items():
+    surf_images[name | X.b] = darken(surf_images[name], 0.7)
+
+# potentially convert all blocks to textures
+images = {k: pgb.T(v) for k, v in surf_images.items()}
 
 # pygame.image.save(palettize_img(_spritesheet, palette_img), "pqweqwe.png")
 
-breaking_sprs = imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
-inventory_img = imgload("res", "images", "visuals", "inventory.png", scale=S)
+breaking_sprs = pgb.imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
+inventory_img = pgb.imgload("res", "images", "visuals", "inventory.png", scale=S)

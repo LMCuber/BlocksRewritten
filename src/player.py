@@ -84,32 +84,28 @@ class Inventory:
     def update(self, display):
         # inventory image
         mouse = pygame.mouse.get_pos()
-        topleft = (window.center[0] - inventory_img.width / 2, 10)
-        display.blit(inventory_img, topleft)
-        x, y = topleft[0] + S * 2, topleft[1] + S * 2
+        inv_rect = inventory_img.get_rect(midtop=(window.width / 2, 20))
+        display.blit(inventory_img, inv_rect)
+        x, y = inv_rect.x + S * 2, inv_rect.y + S * 2
         rects = []
 
         # blocks in the inventory
         for i, (name, amount) in enumerate(zip(self.keys, self.values)):
             # render the block
             blit_pos = (x + i * (BS + S * 4), y)
-            display.blit(blocks.images[name], blit_pos)
-            rects.append(pygame.Rect(*blit_pos, BS + S * 2, BS + S * 2))
+            rects.append(blocks.images[name].get_rect(topleft=blit_pos))
+            display.blit(blocks.images[name], rects[-1])
 
             # write the block amount
-            write(display, "center", amount, fonts.orbitron[13], WHITE, blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
-
-            # write the tooltip
-            if rects[-1].collidepoint(mouse):
-                write(display, "topleft", name, fonts.orbitron[15], WHITE, mouse[0] + 20, mouse[1] + 20)
+            pgb.write(display, "center", amount, fonts.orbitron[13], WHITE, blit_pos[0] + BS / 2, blit_pos[1] + BS / 2)
 
             # only applicable to selected block
             if i == self.index:
                 # selected rectangle
-                pygame.draw.rect(display, WHITE, (blit_pos[0] - S, blit_pos[1] - S, BS + S * 2, BS + S * 2), S)
+                pgb.draw_rect(display, WHITE, (blit_pos[0] - S, blit_pos[1] - S, BS + S * 2, BS + S * 2), S)
 
                 # display the name with text
-                write(display, "midtop", blocks.repr(name), fonts.orbitron[16], self.game.stat_color, window.width / 2, 60)
+                pgb.write(display, "midtop", blocks.repr(name), fonts.orbitron[16], self.game.stat_color, window.width / 2, 70)
 
 
 class Player:
@@ -161,7 +157,8 @@ class Player:
             image = self.images[int(self.anim_index)]
         # flip the image if player is moving to the left instead of to the right
         if self.xvel < 0:
-            image = pygame.transform.flip(image, True, False)
+            # image = pygame.transform.flip(image, True, False)
+            pass
         # render the player
         self.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
         image_rect = image.get_rect(center=self.scrolled_rect.center).move(0, offset)
@@ -170,8 +167,8 @@ class Player:
         # show the hitboxes
         if self.menu.hitboxes.checked:
             # scrolled_rect = hitbox and movement (ORANGE), image_rect = blit position (LIGHT_GREEN)
-            pygame.draw.rect(window.display, ORANGE, self.scrolled_rect, 1)
-            pygame.draw.rect(window.display, LIGHT_GREEN, image_rect, 1)
+            pgb.draw_rect(window.display, ORANGE, self.scrolled_rect, 1)
+            pgb.draw_rect(window.display, LIGHT_GREEN, image_rect, 1)
     
     def process_event(self, event):
         if not self.game.disable_input:

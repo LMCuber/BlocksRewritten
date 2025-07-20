@@ -1,6 +1,7 @@
 from pyengine.pgbasics import *
 #
 from .engine import *
+from .window import *
 from . import fonts
 
 
@@ -10,10 +11,8 @@ class MBT(Enum):
 
 
 midblits = {
-    MBT.WORKBENCH: pygame.Surface((400, 200))
+    MBT.WORKBENCH: SurfaceBuilder((400, 200)).fill((20, 40, 89)).set_alpha(80).build()
 }
-midblits[MBT.WORKBENCH].fill((20, 40, 89))
-midblits[MBT.WORKBENCH].set_alpha(80)
 
 
 # C L A S S E S
@@ -64,7 +63,7 @@ class Midblit:
         # sword
         if self.mode == MBT.WORKBENCH:
             self.game.sword.update()
-            write(self.display, "center", f"{self.game.sword.num_vertices} vertices", fonts.orbitron[14], BLACK, *self.window.center)
+            pgb.write(self.display, "center", f"{self.game.sword.num_vertices} vertices", fonts.orbitron[14], BLACK, *self.window.center)
     
     def update(self):
         if self.active:

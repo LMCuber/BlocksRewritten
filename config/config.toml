@@ -1,7 +1,7 @@
 [game]
 profile = false
 profile_to_file = true
-# timer = 10_000
+# timer = 5_000
 
 [window]
 width = 1080
@@ -9,3 +9,7 @@ height = 720
 fullscreen = false
 fps_cap = 165
 vsync = false
+gpu = true
+
+[world]
+cache_chunk_textures = true

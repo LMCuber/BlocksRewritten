@@ -45,8 +45,9 @@ class AnimData:
             data[skin] = {}
             for mode in yaml_data[skin]:
                 data[skin][mode] = {}
-                data[skin][mode]["images"] = imgload("res", "images", entity_type, skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
-                data[skin][mode]["fimages"] = [pygame.transform.flip(img, True, False) for img in data[skin][mode]["images"]]
+                data[skin][mode]["images"] = pgb.imgload("res", "images", entity_type, skin, f"{mode}.png", scale=S, frames=yaml_data[skin][mode]["frames"])
+                # data[skin][mode]["fimages"] = [pygame.transform.flip(img, True, False) for img in data[skin][mode]["images"]]
+                data[skin][mode]["fimages"] = [img for img in data[skin][mode]["images"]]
                 data[skin][mode]["offset"] = yaml_data[skin][mode].get("offset", 0)
                 data[skin][mode]["speed"] = yaml_data[skin][mode].get("speed", default_speed)
                 data[skin][mode]["hitboxes"] = [img.get_rect() for img in data[skin][mode]["images"]]
@@ -178,7 +179,8 @@ class Sprite:
 
         self.images = [img]
         self.hitboxes = [self.images[0].get_rect()]
-        self.fimages = [pygame.transform.flip(image, True, False) for image in self.images]
+        # self.fimages = [pygame.transform.flip(image, True, False) for image in self.images]
+        self.fimages = [image for image in self.images]
         self.anim = 0
         self.anim_skin = None
         self.anim_mode = None
@@ -207,7 +209,7 @@ class Animation:
     pass
 
 
-class Hitbox(pygame.FRect):
+class Hitbox(pygame.Rect):
     def __init__(self, *args, anchor=None):
         super().__init__(*args)
         self.anchor = anchor
@@ -272,7 +274,7 @@ class PhysicsSystem(ecs.System):
             # access cached collision blocks
             for rect in tr.last_blocks_around:
                 if collisions:
-                    pygame.draw.rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
+                    pgb.draw_rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
                 if hitbox.colliderect(rect):
                     if tr.vel[1] > 0:
                         hitbox.bottom = rect.top
@@ -308,11 +310,11 @@ class PhysicsSystem(ecs.System):
                 o = 20
                 extended_rect = hitbox.inflate(o * 2, 0).move(o * sign(tr.vel[0]), -5)
                 if hitboxes:
-                    pygame.draw.rect(self.display, (120, 120, 120), extended_rect.move(-scroll[0], -scroll[1]), 1)
+                    pgb.draw_rect(self.display, (120, 120, 120), extended_rect.move(-scroll[0], -scroll[1]), 1)
                 for rect in world.get_blocks_around(extended_rect, range_x=range_x_ext, range_y=range_y_ext):
                     # draw the hitboxes
                     if hitboxes:
-                        pygame.draw.rect(self.display, GREEN, rect.move(-scroll[0], -scroll[1]), 1)
+                        pgb.draw_rect(self.display, GREEN, rect.move(-scroll[0], -scroll[1]), 1)
                     # jump the mob because it sees a block in front of it
                     if extended_rect.colliderect(rect):
                         tr.vel[1] = -2
@@ -350,7 +352,7 @@ class RenderSystem(ecs.System):
         self.display = display
         self.set_cache(True)
             
-    def process(self, scroll, hitboxes, chunks):
+    def process(self, scroll, hitboxes, gpu, chunks):
         num = 0
         render_batch: tuple[pygame.Surface, pygame.Rect] = []
 
@@ -361,6 +363,11 @@ class RenderSystem(ecs.System):
             if ecs.has_component(ent_id, Animation):
                 sprite.images, sprite.fimages, sprite.offset, sprite.anim_speed, sprite.rect, sprite.hitboxes = AnimData.get(sprite.anim_skin, sprite.anim_mode)
                 sprite.hitbox_size = sprite.hitboxes[0].size
+                # just in case sprite isn't processed by the physics system
+                hitbox.size = sprite.hitbox_size
+            else:
+                # same thing here
+                hitbox.size = (sprite.images[0].width, sprite.images[0].height)
 
             # correctly set the sprite index
             try:
@@ -393,15 +400,18 @@ class RenderSystem(ecs.System):
             blit_rect = sprite.hitboxes[int(sprite.anim)].move(0, sprite.offset)
             blit_rect = scrolled_hitbox
 
-            # save to batch to render in one go later
-            # self.display.blit(image, blit_rect)
-            render_batch.append((image, blit_rect))
+            # if GPU, render immediately. If CPU, save batch and render later
+            if gpu:
+                self.display.blit(image, blit_rect)
+            else:
+                render_batch.append((image, blit_rect))
 
             # debugging
             if hitboxes:
-                pygame.draw.circle(self.display, RED, scrolled_hitbox.topleft, 4)
+                draw_circle(self.display, RED, scrolled_hitbox.topleft, 4)
         
-        self.display.blits(render_batch)
+        if not gpu:
+            self.display.fblits(render_batch)  # as per docs, fblits is faster than blits
         
         return num
 
@@ -434,7 +444,7 @@ class DebugSystem(ecs.System):
         for ent_id, chunk, (flags, tr, health) in ecs.get_components(DebugFlag, Transform, Health, chunks=chunks):
             blit_pos = (tr.pos[0] - scroll[0], tr.pos[1] - scroll[1])
             if flags & DebugFlags.SHOW_CHUNK:
-                write(self.display, "center", chunk, fonts.orbitron[20], BROWN, blit_pos[0], blit_pos[1] - 20)
+                pgb.write(self.display, "center", chunk, fonts.orbitron[20], BROWN, blit_pos[0], blit_pos[1] - 20)
 
 
 class CollisionSystem(ecs.System):
@@ -530,10 +540,10 @@ class DisplayHealthSystem(ecs.System):
                 # display the health bar
                 bg_rect = pygame.Rect(0, 0, 70, 10)
                 bg_rect.midtop = (tr.pos[0] - scroll[0], tr.pos[1] - 20 - scroll[1])
-                pygame.draw.rect(self.display, BLACK, bg_rect)
+                pgb.draw_rect(self.display, BLACK, bg_rect)
                 hl_rect = bg_rect.inflate(-4, -4)
                 hl_rect.width *= health.value / health.max
                 tr_rect = bg_rect.inflate(-4, -4)
                 tr_rect.width *= health.trail / health.max
-                pygame.draw.rect(self.display, PINK, tr_rect)
-                pygame.draw.rect(self.display, RED, hl_rect)
+                pgb.draw_rect(self.display, PINK, tr_rect)
+                pgb.draw_rect(self.display, RED, hl_rect)
