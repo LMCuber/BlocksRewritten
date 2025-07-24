@@ -1,15 +1,17 @@
 [game]
-profile = false
-profile_to_file = true
-# timer = 5_000
+profile = 0
+profile_to_file = 1
+# timer = 2000
 
 [window]
 width = 1080
 height = 720
-fullscreen = false
+fullscreen = 0
 fps_cap = 165
-vsync = false
-gpu = true
+vsync = 0
+gpu = 1
 
 [world]
-cache_chunk_textures = true
+cache_chunk_textures = 0
+lighting = 1
+cache_light_textures = 0

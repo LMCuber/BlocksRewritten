@@ -6,13 +6,9 @@ from pyengine.ecs import *
 from .engine import *
 from .entities import *
 from .window import window
-from .blocks import BF, inventory_img, bwand, X
+from .blocks import BF, inventory_img, bwand, nbwand, X
 from .midblit import MBT
 from .tools import *
-
-
-def cyclic(l):
-    return {l[i]: l[(i + 1) % len(l)] for i in range(len(l))} 
 
 
 class Direction(Enum):
@@ -21,11 +17,16 @@ class Direction(Enum):
     RIGHT = auto()
 
 
-class Action(Enum):
+class BlockAction(Enum):
     NONE = auto()
     PLACE = auto()
     BREAK = auto()
     INTERACT = auto()
+
+
+class Action(Enum):
+    TERRAIN = auto()
+    ATTACK = auto()
 
 
 class MoveMode(Enum):
@@ -34,9 +35,11 @@ class MoveMode(Enum):
 
 
 class Inventory:
-    def __init__(self, game):
+    def __init__(self, player):
+        self.player = player
+        self.game = self.player.game
+
         self.max_items = 11
-        self.game = game
         self.keys: list[str] = []
         self.values: list[int] = []
         self.index: int = 0
@@ -101,8 +104,9 @@ class Inventory:
 
             # only applicable to selected block
             if i == self.index:
-                # selected rectangle
-                pgb.draw_rect(display, WHITE, (blit_pos[0] - S, blit_pos[1] - S, BS + S * 2, BS + S * 2), S)
+                if self.player.action == Action.TERRAIN:
+                    # selected rectangle
+                    pgb.draw_rect(display, WHITE, (blit_pos[0] - S, blit_pos[1] - S, BS + S * 2, BS + S * 2), S)
 
                 # display the name with text
                 pgb.write(display, "midtop", blocks.repr(name), fonts.orbitron[16], self.game.stat_color, window.width / 2, 70)
@@ -130,8 +134,10 @@ class Player:
         self.jumps_left = 2
         self.pressing_jump = False
         # interaction with blocks
-        self.action = Action.NONE
-        self.inventory = Inventory(self.game)
+        self.block_action = BlockAction.NONE
+        self.action = Action.TERRAIN
+        self.action_when_clicked = None
+        self.inventory = Inventory(self)
         self.inventory.add("torch", 99)
         self.inventory.add("bricks", 99)
         self.inventory.add("workbench", 99)
@@ -143,48 +149,49 @@ class Player:
     def update(self, display, dt):
         self.move(dt)
         self.edit(display)
-        self.draw(display)
+        self.draw(display, dt)
 
-    def draw(self, display):
+    def draw(self, display, dt):
         # get the current animation image
-        self.images, self.fimages, offset, anim_vel, _ = AnimData.get(self.anim_skin, self.anim_mode)
-        self.anim_index += anim_vel
+        self.images, self.fimages, offset, anim_vel, hitboxes = AnimData.get(self.anim_skin, self.anim_mode)
+        self.anim_index += anim_vel * dt
         try:
-            image = self.images[int(self.anim_index)]
+            self.images[int(self.anim_index)]
         except IndexError:
             self.anim_index = 0
-        finally:
+        if self.xvel > 0:
             image = self.images[int(self.anim_index)]
-        # flip the image if player is moving to the left instead of to the right
-        if self.xvel < 0:
-            # image = pygame.transform.flip(image, True, False)
-            pass
+        else:
+            image = self.fimages[int(self.anim_index)]
+        
         # render the player
         self.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
-        image_rect = image.get_rect(center=self.scrolled_rect.center).move(0, offset)
-        display.blit(image, image_rect)
+        blit_rect = self.images[int(self.anim_index)].get_rect(center=self.scrolled_rect.center).move(0, offset)
+        display.blit(image, blit_rect)
         
         # show the hitboxes
         if self.menu.hitboxes.checked:
             # scrolled_rect = hitbox and movement (ORANGE), image_rect = blit position (LIGHT_GREEN)
             pgb.draw_rect(window.display, ORANGE, self.scrolled_rect, 1)
-            pgb.draw_rect(window.display, LIGHT_GREEN, image_rect, 1)
+            pgb.draw_rect(window.display, LIGHT_GREEN, blit_rect, 1)
     
     def process_event(self, event):
         if not self.game.disable_input:
             if event.type == pygame.MOUSEBUTTONDOWN:
+                self.action_when_clicked = self.action
                 # right mouse button
                 if event.button == 3:
                     self.interact()
 
             elif event.type == pygame.MOUSEBUTTONUP:
-                self.action = Action.NONE
+                self.block_action = BlockAction.NONE
                 self.world.breaking.index = None
                 self.world.breaking.pos = None
+                self.action_when_clicked = None
         
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_SPACE:
-                self.anim_skin = cyclic(["_default", "samurai", "nutcracker", "ra"])[self.anim_skin]
+                # self.anim_skin = cyclic(["_default", "samurai", "nutcracker", "ra"])[self.anim_skin]
                 # drop_img = pygame.transform.scale_by(blocks.images["soil_f"], 0.5)
                 # for _ in range(1000):
                 #     create_entity(
@@ -194,6 +201,11 @@ class Player:
                 #         # Drop("soil_f"),
                 #         chunk=None
                 #     )
+                self.action = cyclic((Action.TERRAIN, Action.ATTACK))[self.action]
+                if self.action == Action.TERRAIN:
+                    pygame.mouse.set_cursor(pygame.cursors.tri_left)
+                elif self.action == Action.ATTACK:
+                    pygame.mouse.set_cursor(pygame.cursors.broken_x)
             
             elif event.key == pygame.K_f:
                 # interact key
@@ -224,7 +236,6 @@ class Player:
         if self.game.substate == Substates.PLAY:
             # get mouse data
             mouse = pygame.mouse.get_pos()
-            mouses = pygame.mouse.get_pressed()
             chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
             base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, ""))
 
@@ -250,59 +261,67 @@ class Player:
             # interact your mouse with the blocks
             if not self.game.disable_input:
                 if mouses[0]:
-                    # check where the mouse wants to place a block and whether it's prohibited
-                    chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
-                    base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, "air"))
+                    if self.action == Action.TERRAIN and self.action_when_clicked == Action.TERRAIN:
+                        # check where the mouse wants to place a block and whether it's prohibited
+                        chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
+                        base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, "air"))
 
-                    # first decide what to do with the click depending on the block underneath
-                    if self.action == Action.NONE:
-                        # decide whether the first block you click on should be broken, edited, created on, etc.
-                        if bwand(base, BF.EMPTY) or "b" in mods:
-                            # the block should be placed
-                            self.action = Action.PLACE
-                        else:
-                            # the block should be broken
-                            self.action = Action.BREAK
+                        # first decide what to do with the click depending on the block underneath
+                        if self.block_action == BlockAction.NONE:
+                            # decide whether the first block you click on should be broken, edited, created on, etc.
+                            if bwand(base, BF.EMPTY) or "b" in mods:
+                                if nbwand(base, BF.UNPLACABLE):
+                                    # the block should be placed
+                                    self.block_action = BlockAction.PLACE
+                            else:
+                                # the block should be broken
+                                self.block_action = BlockAction.BREAK
 
-                    # break the block
-                    if self.action == Action.BREAK:
-                        # for xo, yo in product(range(-1, 2), repeat=2):
-                        #     new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
-                        #     if new_block_pos in self.world.data[new_chunk_index]:
-                        #         self.world.break_(new_chunk_index, new_block_pos)
-                        if not (bwand(base, BF.EMPTY) or "b" in mods):
-                            if block_pos in self.world.data[chunk_index]:
-                                # increase the world breaking
-                                if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
-                                    # break block since it already began breaking
-                                    self.world.breaking.anim += 10
-                                else:
-                                    # switch to new block
-                                    self.world.breaking.index = chunk_index
-                                    self.world.breaking.pos = block_pos
-                                    self.world.breaking.anim = 0
+                        # break the block
+                        if self.block_action == BlockAction.BREAK:
+                            for xo, yo in product(range(-1, 2), repeat=2):
+                                new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                                if new_block_pos in self.world.data[new_chunk_index]:
+                                    self.world.break_(new_chunk_index, new_block_pos)
+                            if not (bwand(base, BF.EMPTY) or "b" in mods) and False:
+                                if block_pos in self.world.data[chunk_index]:
+                                    # increase the world breaking
+                                    if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
+                                        # break block since it already began breaking
+                                        self.world.breaking.anim += 10
+                                    else:
+                                        # switch to new block
+                                        self.world.breaking.index = chunk_index
+                                        self.world.breaking.pos = block_pos
+                                        self.world.breaking.anim = 0
 
-                    # build a new block
-                    elif self.action == Action.PLACE:
-                        # check if block is not there or a background block
-                        can_place = False
-                        if bwand(self.world.data[chunk_index].get(block_pos, "air"), BF.EMPTY):
-                            can_place = True
-                        else:
-                            base, mods = blocks.norm(self.world.data[chunk_index][block_pos])
-                            if "b" in mods:
+                        # build a new block
+                        elif self.block_action == BlockAction.PLACE:
+                            # check if block is not there or a background block
+                            can_place = False
+                            if bwand(self.world.data[chunk_index].get(block_pos, "air"), BF.EMPTY):
                                 can_place = True
-                                
-                        if self.inventory.current_amount > 0:
-                            if can_place:
-                                placed_name = self.inventory.current
-                                self.world.set(chunk_index, block_pos, placed_name)
-                                self.process_placed_block(chunk_index, block_pos, placed_name)
-                                self.inventory.use()
-                        
-                    # edit the block
-                    elif self.action == Action.INTERACT:
-                        print("ASD")
+                            else:
+                                base, mods = blocks.norm(self.world.data[chunk_index][block_pos])
+                                if "b" in mods:
+                                    can_place = True
+                                    
+                            if self.inventory.current_amount > 0:
+                                if can_place:
+                                    placed_name = self.inventory.current
+                                    self.world.set(chunk_index, block_pos, placed_name)
+                                    self.process_placed_block(chunk_index, block_pos, placed_name)
+                                    self.inventory.use()
+                            
+                        # edit the block
+                        elif self.block_action == BlockAction.INTERACT:
+                            print("ASD")
+                    
+                    elif self.action == Action.ATTACK:
+                        self.attack()
+    
+    def attack(self):
+        pass
     
     def process_placed_block(self, chunk_index, block_pos, block):
         if block == "karabiner":
@@ -330,11 +349,11 @@ class Player:
         self.direc = Direction.NONE
         if keys[pygame.K_a]:
             self.xvel = -self.max_xvel
-            self.rect.x += self.xvel
+            self.rect.x += self.xvel * dt
             self.direc = Direction.LEFT
         if keys[pygame.K_d]:
             self.xvel = self.max_xvel
-            self.rect.x += self.xvel
+            self.rect.x += self.xvel * dt
             self.direc = Direction.RIGHT
         if not (keys[pygame.K_a] or keys[pygame.K_d]):
             self.anim_mode = "idle"
@@ -358,15 +377,18 @@ class Player:
             self.pressing_jump = False
 
         if self.move_mode == MoveMode.NORMAL:
-            self.yvel += self.gravity
-            self.rect.y += self.yvel
+            # accounting for the dt curve
+            self.yvel += self.gravity * dt * 0.5
+            self.rect.y += self.yvel * dt
+            self.yvel += self.gravity * dt * 0.5
+            ...
 
         # collision Y
         # TODO: the range of the collision in the y-direction to account for movement
         for rect in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4)):
             if self.rect.colliderect(rect):
                 if self.yvel > 0:
-                    self.rect.bottom = rect.top
+                    self.rect.bottom = rect.top 
                     self.jumps_left = 1
                     self.in_air = False
                 else:

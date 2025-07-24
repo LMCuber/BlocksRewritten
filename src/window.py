@@ -4,7 +4,8 @@ import tomllib as toml
 from random import uniform as randf
 from math import sin, pi
 from pyengine.pgbasics import set_pyengine_gpu
-from pygame._sdl2.video import Window, Renderer, Texture
+from pygame._sdl2.video import Window, Renderer, Texture, Image
+import pygame._sdl2.video
 #
 from pyengine.pgbasics import *
 import pyengine.pgbasics as pgb
@@ -29,11 +30,13 @@ class WindowHandler:
         self.gpu = gpu
         self.center = (self.width / 2, self.height / 2)
 
-        if gpu:
-            # GPU acceleration changes way loaded images and surfaces are created
-            self.window = Window(size=self.size)
-            self.display = Renderer(self.window)
+        pygame.mouse.set_cursor(pygame.cursors.tri_left)
 
+        if gpu:
+            self.window = Window(size=self.size)
+            self.display = Renderer(self.window, vsync=vsync)
+
+            # GPU acceleration changes way loaded images and surfaces are created, modified and rendered
             set_pyengine_gpu(self.display)
         else:
             # pygame window and OpenGL flags

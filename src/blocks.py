@@ -110,8 +110,6 @@ def repr(name):
         if (mat := re.match(r"vr(.+)", ver)):  # herculean use of the walrus operator
             mat = mat.group(1)
 
-            # if mat == "N":
-            #     ret = f"normal {ret}"
             if mat == "L":
                 ret = f"left {ret}"
             if mat == "R":
@@ -152,6 +150,9 @@ class BF(IntFlag):
     LIGHT_SOURCE = auto()
     EMPTY = auto()
     UNBREAKABLE = auto()
+    UNPLACABLE = auto()
+    FOOD = auto()
+    DECOR = auto()
 
 
 class OreData:
@@ -178,8 +179,13 @@ flags = defaultdict(lambda: BF.NONE, {
     "dirt_f" | X.b: BF.EMPTY | BF.LIGHT_SOURCE,
     "stone" | X.b: BF.EMPTY,
     "blackstone": BF.UNBREAKABLE,
-    "torch": BF.LIGHT_SOURCE | BF.WALKABLE,
+    "torch": BF.LIGHT_SOURCE | BF.WALKABLE | BF.DECOR,
+    "chicken": BF.FOOD,
 })
+
+for block, flag in flags.items():
+    if flag | BF.FOOD:
+        flag |= BF.UNPLACABLE
 
 params = {
     "air": {"light": MAX_LIGHT},
@@ -216,8 +222,8 @@ _spritesheet = cpu_imgload("res", "images", "spritesheets", "blocks.png")
 # load block surf_images
 for y, layer in enumerate(block_list):
     for x, name in enumerate(layer):
-        surf_images[name] = scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
-    
+        surf_images[name] = pygame.transform.scale_by(_spritesheet.subsurface(x * BS / S, y * BS / S, BS / S, BS / S), S)
+
 # additional dynamically generated blocks
 surf_images["coal"] = surf_images["base-ore"]
 surf_images["iron"] = swap_palette(surf_images["base-ore"], BLACK, (161, 157, 148))

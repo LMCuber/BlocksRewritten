@@ -23,7 +23,6 @@ class Game:
         self.config = config
         # rendering and frames
         self.clock = pygame.time.Clock()
-        self.init_systems()
         if not window.gpu:
             self.shader = ModernglShader(
                 Path("src", "shaders", "default.vert"),
@@ -36,10 +35,13 @@ class Game:
         self.fake_scroll = [0, 0]
         self.scroll = [0, 0]
         self.last_start = ticks()
+        self.last_frame = ticks()
         self.state = States.PLAY
         self.substate = Substates.PLAY
         self.disable_input = False
         self.num_rendered_entities = 0
+        self.num_frames = 0
+        self.dt = 1
         # joystick
         self.joystick = joystick.JoystickManager()
         # UI / UX
@@ -48,6 +50,8 @@ class Game:
         self.midblit = Midblit(self, window)
         # menu stuff
         menu.quit.command = self.quit
+        # systems
+        self.init_systems()
     
     @property
     def stat_color(self):
@@ -56,23 +60,24 @@ class Game:
     def init_systems(self):
         self.chunk_repositioning_system = ChunkRepositioningSystem()
         self.render_system = RenderSystem(window.display)
-        self.physics_system = PhysicsSystem(window.display)
-        self.player_follower_system = PlayerFollowerSystem(window.display)
+        self.physics_system = PhysicsSystem(window.display, self.world)
+        self.player_follower_system = PlayerFollowerSystem(window.display, self.player)
         # self.debug_system = DebugSystem(window.display)
-        self.collision_system = CollisionSystem()
+        self.mob_system = MobSystem()
+        self.collision_player_entity_system = CollisionPlayerEntitySystem(self.player)
         self.damage_text_system = DamageTextSystem(window.display)
-        self.display_health_system = DisplayHealthSystem(window.display)
-        self.drop_system = DropSystem(window.display)
+        self.health_display_system = HealthDisplaySystem(window.display)
+        self.drop_system = DropSystem(window.display, self.player)
     
     def process_systems(self, processed_chunks):
-        return
-        self.chunk_repositioning_system.process(chunks=processed_chunks)
-        self.physics_system.process(self.world, self.scroll, menu.hitboxes, menu.collisions, chunks=processed_chunks)
-        self.player_follower_system.process(self.player, chunks=processed_chunks)
-        self.collision_system.process(self.player, chunks=processed_chunks)
-        self.damage_text_system.process(self.scroll, chunks=processed_chunks)
-        self.display_health_system.process(self.scroll, chunks=processed_chunks)
-        self.drop_system.process(self.player, self.scroll, chunks=processed_chunks)
+        # Render system gets processed at world.py
+        self.chunk_repositioning_system    .process(chunks=processed_chunks)
+        self.physics_system                .process(self.scroll, menu.hitboxes, menu.collisions, self.dt, chunks=processed_chunks)
+        self.player_follower_system        .process(chunks=processed_chunks)
+        self.mob_system                    .process(chunks=processed_chunks)
+        self.collision_player_entity_system.process(chunks=processed_chunks)
+        self.drop_system                   .process(chunks=processed_chunks)
+        self.health_display_system         .process(self.scroll, chunks=processed_chunks)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -107,16 +112,24 @@ class Game:
         self.scroll[1] = int(self.fake_scroll[1])
     
     def quit(self, timer_msg=False):
+        elapsed = ticks() - self.last_start
         if timer_msg:
-            print(Fore.GREEN + f"Runtime of {self.config["game"]["timer"] // 1000}s ended")
+            print(Fore.GREEN
+                  + f"""
+Runtime: 
+- {elapsed / 1000:.3f}s
+- {self.num_frames} frames
+- avg. FPS: {self.num_frames / elapsed * 1000:.3f}
+                  """)
         pygame.quit()
         sys.exit()
             
     def mainloop(self):
         self.running = True
         while self.running:
+            self.last_frame = ticks()
+            self.num_frames += 1
             window.fps_cap = menu.fps_cap.value
-            dt = self.clock.tick(0) / (1 / 144 * 1000)
 
             for event in pygame.event.get():
                 pgw.process_widget_events(event)
@@ -138,8 +151,9 @@ class Game:
                                 for widget in menu.iter_widgets():
                                     widget.disable()
                     
-                    elif event.type == pygame.K_SPACE:
-                        pass
+                    elif event.key == pygame.K_SPACE:
+                        pprint(self.world.wall_data[(0, 2)])
+                        raise
                     
                     elif event.key == pygame.K_q:
                         self.quit()
@@ -160,8 +174,7 @@ class Game:
             if self.state == States.PLAY:
                 # draw and update the terrain
                 self.num_rendered_entities = 0
-                num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll, self, dt)
-                processed_chunks.append(None)  # the "global" chunk, so entities that update always
+                num_blocks, processed_chunks, block_rects = self.world.update(window.display, self.scroll, self, self.dt)
                 
                 # process the ECS systems
                 self.process_systems(processed_chunks)
@@ -179,23 +192,26 @@ class Game:
             pgb.write(window.display, "topleft", f"FPS : {int(self.clock.get_fps())}", fonts.orbitron[20], self.stat_color, 5, 5)
 
             # display important parameters
-            params = ""
+            params = "params:\n"
             if self.config["game"]["profile"]:
-                params += "profiled | "
+                params += f"{EMD} profiled\n"
             if window.vsync:
-                params += "vsync | "
-            params += ("GPU" if window.gpu else "CPU") + " | "
-            params += ("cached chunks" if self.world.cache_chunk_textures else "iterated chunks") + " | "
-            params = params.removesuffix(" | ")
+                params += f"{EMD} vsync\n"
+            params += f"{EMD} {("GPU" if window.gpu else "CPU")}\n"
+            params += f"{EMD} {("cached chunks" if self.world.cache_chunk_textures else "iterated chunks")}\n"
+            if self.world.lighting:
+                params += f"{EMD} {("cached lighting" if self.world.cache_chunk_textures else "iterated lighting")}\n"
+            else:
+                params += f"{EMD} {"no lighting"}\n"
+            params = params.removesuffix("\n")
             if params:
-                params = "— " + params
-                pgb.write(window.display, "topleft", params, fonts.orbitron[12], BLACK, 5, 30)
+                pgb.write(window.display, "topleft", params, fonts.orbitron[12], self.stat_color, 5, 30)
 
             # display debugging / performance stats
-            pgb.write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 70)
-            pgb.write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 90)
-            pgb.write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 130)
-            pgb.write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 150)
+            pgb.write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 110)
+            pgb.write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 130)
+            pgb.write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 150)
+            pgb.write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 170)
 
             # --- DO ALL RENDERING BEFORE THIS CODE BELOW ---
             if not window.gpu:
@@ -211,12 +227,17 @@ class Game:
             else:
                 pygame.display.flip()
 
-            # you won't guess what this function does
+            # you shant guess what this function does
             if not window.gpu:
                 self.shader.release_all_textures()
 
             # debug quit
             if ticks() - self.last_start >= self.config["game"].get("timer", float("inf")):
                 self.quit(timer_msg=True)
+            
+            # cap fps
+            self.dt = self.clock.tick() / (1 / 165 * 1000) # normalized dt; 1 when perfectly stable
+            if self.dt > 10:
+                self.dt = 10
 
         self.quit()

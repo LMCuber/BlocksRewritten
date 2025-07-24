@@ -24,6 +24,7 @@ CW = 16
 CH = 16
 S = 3
 BS = 10 * S
+EMD = "—"
 
 Pos = tuple[int, int]
 
@@ -39,25 +40,8 @@ class Profile:
 
 
 # FUNCTIONS
-def clamp(n, min_, max_):
-    return min(max(n, min_), max_)
-
-
-def sigfigs(x, n):
-    if x == 0:
-        return 0
-    mag = floor(log10(abs(x)))
-    scale = 10 ** (n - 1 - mag)
-    return round(x * scale) / scale
-
-
-def cceil(n):
-    if n == 0:
-        return 0
-    elif n > 0:
-        return ceil(n)
-    else:
-        return floor(n)
+def cyclic(l):
+    return {l[i]: l[(i + 1) % len(l)] for i in range(len(l))} 
 
 
 # CLASSES
