@@ -68,6 +68,7 @@ class Game:
         self.damage_text_system = DamageTextSystem(window.display)
         self.health_display_system = HealthDisplaySystem(window.display)
         self.drop_system = DropSystem(window.display, self.player)
+        self.disappear_system = DisappearSystem()
     
     def process_systems(self, processed_chunks):
         # Render system gets processed at world.py
@@ -78,6 +79,7 @@ class Game:
         self.collision_player_entity_system.process(chunks=processed_chunks)
         self.drop_system                   .process(chunks=processed_chunks)
         self.health_display_system         .process(self.scroll, chunks=processed_chunks)
+        self.disappear_system              .process(chunks=processed_chunks)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -150,10 +152,6 @@ Runtime:
                                 self.substate = Substates.PLAY
                                 for widget in menu.iter_widgets():
                                     widget.disable()
-                    
-                    elif event.key == pygame.K_SPACE:
-                        pprint(self.world.wall_data[(0, 2)])
-                        raise
                     
                     elif event.key == pygame.K_q:
                         self.quit()

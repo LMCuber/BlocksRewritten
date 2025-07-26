@@ -69,8 +69,8 @@ class AnimData:
 # enums of components (up here because the type hints otherwise do not compile)
 # DO NOT INSTANTIATE, THEY ARE MEANT TO BE WRAPPED INSIDE THE CORRESPONDING CLASSES, e.g. CollisionFlag(CollisionFlags.SEND | CollisionFlags.INACTIVE) or something ;)
 class TransformFlags(IntFlag):
-    PROJECTILE = auto()
     NONE = auto()
+    BLOCK_HALT = auto()
 
 
 class DebugFlags(IntFlag):
@@ -138,7 +138,7 @@ class MutInt:
     def __idiv__(self, x):
         self.value /= x
         return self
-
+    
 
 class TransformFlag(int): pass
 
@@ -147,13 +147,30 @@ class DebugFlag(int): pass
 class CollisionFlag(MutInt): pass
 
 
+@dataclass
+class Projectile:
+    damage: int
+    pierce: bool = False
+
+
+@dataclass
+class Disappear:
+    duration: int  # in seconds
+    last_created: int = float("inf")
+
+    @classmethod
+    def default(cls):
+        self = cls(60)
+        return self
+
+
 # dataclass components (structs without logical initialization)
 @dataclass
 class Transform:
     pos: list[float, float]
     vel: list[float, float]
-    flag: TransformFlag = TransformFlag(TransformFlags.NONE)
     gravity: float = glob.gravity
+    flag: TransformFlag = TransformFlag(TransformFlags.NONE)
     acc: float = 0
     active: bool = True
     sine: tuple[float, float] = (0, 0)
@@ -243,11 +260,6 @@ class Sprite:
         return self
 
 
-@dataclass
-class Animation:
-    pass
-
-
 class Hitbox(pygame.FRect):
     def __init__(self, *args, anchor=None):
         super().__init__(*args)
@@ -315,14 +327,19 @@ class PhysicsSystem(ecs.System):
                 for rect in tr.last_blocks_around:
                     if collisions:
                         pgb.draw_rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
+                        
                     if hitbox.colliderect(rect):
                         if tr.vel[1] > 0:
                             hitbox.bottom = rect.top
                         else:
                             hitbox.top = rect.bottom
+                            
                         # stop projectiles when hitting the ground
-                        if tr.flag & TransformFlags.PROJECTILE:
+                        if tr.flag & TransformFlags.BLOCK_HALT or ecs.has_component(ent_id, Projectile):
                             tr.active = False
+                            if (disap := ecs.try_component(ent_id, Disappear)):
+                                disap.last_created = ticks()
+
                         tr.vel[1] = 0
                 
                 # horizontal movement
@@ -336,7 +353,7 @@ class PhysicsSystem(ecs.System):
                         else:
                             hitbox.left = rect.right
                         # stop the horizontal movement if projectile hits a wall
-                        if tr.flag & TransformFlags.PROJECTILE:
+                        if ecs.has_component(ent_id, Projectile):
                             tr.vel[0] = 0
             
             # jump over obstacles if it is a mob
@@ -494,44 +511,30 @@ class DebugSystem(ecs.System):
 class CollisionPlayerEntitySystem(ecs.System):
     def __init__(self, player):
         self.player = player
+    
+    def take_damage(self, tr, mob, health, damage):
+        # damage the mob
+        tr.vel[1] = -1.8
+        mob.state = MobState.FRANTIC
+        mob.last_frantic = ticks()
+        mob.last_frantic_twitch = ticks()
+        health -= damage
                             
     def process(self, chunks):
-        for ent_id, chunk, (hitbox, mob, health) in ecs.get_components(Hitbox, Mob, Health, chunks=chunks):
-            # check collision with the player
-            if self.player.rect.colliderect(hitbox):
-                # damage the s
-                self.player.yvel = -6
-                mob.state = MobState.FRANTIC
-                mob.last_frantic = ticks()
-                mob.last_frantic_twitch = ticks()
-                health -= 10
-                
-                # check if the mob is dead after this damage
-                if health <= 0:
-                    # drop the loot if any
-                    if (loot := ecs.try_component(ent_id, Loot)):
-                        # drop all loot blocks
-                        for block, amount in loot.data.items():
-                            drop_img = pgb.scale_by(blocks.surf_images[block], 0.5)
-                            for _ in range(amount):
-                                ecs.create_entity(
-                                    Transform(
-                                        [0, 0],
-                                        [randf(-0.5, 0.5), -randf(5, 6)],
-                                        gravity=glob.gravity * 0.5,
-                                        flag=TransformFlag(TransformFlags.PROJECTILE)),
-                                    Hitbox(hitbox.center, (0, 0), anchor="center"),
-                                    Sprite.from_img(drop_img),
-                                    Drop(block),
-                                    chunk=chunk
-                                )
-                    # delete as last
-                    ecs.delete_entity(ent_id, chunk)
+        for ent_id, chunk, (tr, hitbox, mob, health) in ecs.get_components(Transform, Hitbox, Mob, Health, chunks=chunks):
+            # check collision with projectiles
+            for p_ent_id, p_chunk, (p_tr, p_hitbox, proj) in ecs.get_components(Transform, Hitbox, Projectile, chunks=chunks):
+                if p_tr.active:
+                    if hitbox.colliderect(p_hitbox):
+                        self.take_damage(tr, mob, health, proj.damage)
+                        #
+                        if not proj.pierce:
+                            ecs.delete_entity(p_ent_id, p_chunk)
 
 
 class MobSystem(ecs.System):
     def process(self, chunks):
-        for ent_id, chunk, (tr, hitbox, mob) in ecs.get_components(Transform, Hitbox, Mob, chunks=chunks):
+        for ent_id, chunk, (tr, mob) in ecs.get_components(Transform, Mob, chunks=chunks):
             if mob.state == MobState.FRANTIC:
                 # twitch the frantic
                 if ticks() - mob.last_frantic_twitch >= rand(200, 700):
@@ -584,12 +587,36 @@ class HealthDisplaySystem(ecs.System):
             
     def process(self, scroll, chunks):
         for ent_id, chunk, (hitbox, sprite, health) in ecs.get_components(Hitbox, Sprite, Health, chunks=chunks):
+            # check if the mob is dead
+            if health <= 0:
+                # drop the loot if any
+                if (loot := ecs.try_component(ent_id, Loot)):
+                    # drop all loot blocks
+                    for block, amount in loot.data.items():
+                        drop_img = pgb.scale_by(blocks.surf_images[block], 0.5)
+                        for _ in range(amount):
+                            ecs.create_entity(
+                                Transform(
+                                    [0, 0],
+                                    [randf(-0.5, 0.5), -randf(3, 4)],
+                                    gravity=glob.gravity * 0.5,
+                                    flag=TransformFlag(TransformFlags.BLOCK_HALT),
+                                ),
+                                Hitbox(hitbox.center, (0, 0), anchor="center"),
+                                Sprite.from_img(drop_img),
+                                Drop(block),
+                                Disappear.default(),
+                                chunk=chunk
+                            )
+                # delete as last
+                ecs.delete_entity(ent_id, chunk)
+
             if 0 < health.value < health.max:
                 # decrease health bar visual using lerp
                 health.trail -= (health.trail - health.value) * 0.01
 
                 # display the health bar
-                bg_rect = pygame.Rect(0, 0, 70, 10)
+                bg_rect = pygame.Rect(0, 0, 60, 8)
                 bg_rect.midtop = (hitbox.centerx - scroll[0], hitbox.y - 20 - scroll[1])
                 pgb.draw_rect(self.display, BLACK, bg_rect)
                 hl_rect = bg_rect.inflate(-4, -4)
@@ -598,3 +625,10 @@ class HealthDisplaySystem(ecs.System):
                 tr_rect.width *= health.trail / health.max
                 pgb.fill_rect(self.display, PINK, tr_rect)
                 pgb.fill_rect(self.display, RED, hl_rect)
+
+
+class DisappearSystem(ecs.System):
+     def process(self, chunks):
+        for ent_id, chunk, (disap,) in ecs.get_components(Disappear, chunks=chunks):
+            if ticks() - disap.last_created >= disap.duration * 1000:
+                ecs.delete_entity(ent_id, chunk)

@@ -114,17 +114,18 @@ class Inventory:
 
 class Player:
     def __init__(self, game, world, menu):
-        # pointers to lobal game objects
+        # dependency injection
         self.game = game
         self.world = world
         self.menu = menu
         # animation parameters
         self.anim_index = 0  # index of spritesheet
-        self.anim_skin = "samurai"
+        self.anim_skin = "_default"
         self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
         self.rect = pygame.FRect((0, -100, 52, 70))
+        self.blit_rect = pygame.Rect(0, 0, 0, 0)
         # physics
         self.yvel = 0
         self.xvel = 0
@@ -139,11 +140,6 @@ class Player:
         self.action_when_clicked = None
         self.inventory = Inventory(self)
         self.inventory.add("torch", 99)
-        self.inventory.add("bricks", 99)
-        self.inventory.add("workbench", 99)
-        self.inventory.add("dirt_f", 99)
-        self.inventory.add("wood_p_vrN", 99)
-        self.inventory.add("dynamite", 99)
         self.last_placed = []
     
     def update(self, display, dt):
@@ -166,15 +162,30 @@ class Player:
         
         # render the player
         self.scrolled_rect = self.rect.move(-self.game.scroll[0], -self.game.scroll[1])
-        blit_rect = self.images[int(self.anim_index)].get_rect(center=self.scrolled_rect.center).move(0, offset)
-        display.blit(image, blit_rect)
+        self.blit_rect = self.images[int(self.anim_index)].get_rect(center=self.scrolled_rect.center).move(0, offset)
+        display.blit(image, self.blit_rect)
         
         # show the hitboxes
         if self.menu.hitboxes.checked:
             # scrolled_rect = hitbox and movement (ORANGE), image_rect = blit position (LIGHT_GREEN)
             pgb.draw_rect(window.display, ORANGE, self.scrolled_rect, 1)
-            pgb.draw_rect(window.display, LIGHT_GREEN, blit_rect, 1)
+            pgb.draw_rect(window.display, LIGHT_GREEN, self.blit_rect, 1)
     
+    def attack(self, event):
+        if event.button == 1:
+            dy = pygame.mouse.get_pos()[1] - self.blit_rect.centery
+            dx = pygame.mouse.get_pos()[0] - self.blit_rect.centerx
+            angle = atan2(dy, dx)
+            m = 10
+            create_entity(
+                Transform([0, 0], [m * cos(angle), m * sin(angle)], gravity=glob.gravity * 0.1),
+                Hitbox(self.rect.center, (0, 0)),
+                Sprite.from_img(pgb.scale_by(imgload("res", "images", "bullet.png"), 3)),
+                Projectile(37),
+                Disappear.default(),
+                chunk=self.world.pos_to_tile(self.rect.center)[0]
+            )
+            
     def process_event(self, event):
         if not self.game.disable_input:
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -183,6 +194,10 @@ class Player:
                 if event.button == 3:
                     self.interact()
 
+                # attack
+                if self.action == Action.ATTACK:
+                    self.attack(event)
+                
             elif event.type == pygame.MOUSEBUTTONUP:
                 self.block_action = BlockAction.NONE
                 self.world.breaking.index = None
@@ -316,12 +331,6 @@ class Player:
                         # edit the block
                         elif self.block_action == BlockAction.INTERACT:
                             print("ASD")
-                    
-                    elif self.action == Action.ATTACK:
-                        self.attack()
-    
-    def attack(self):
-        pass
     
     def process_placed_block(self, chunk_index, block_pos, block):
         if block == "karabiner":

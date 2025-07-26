@@ -2,9 +2,8 @@ import opensimplex as osim
 import noise
 from enum import Enum
 from collections import deque
-import uuid
+import secrets
 from queue import Queue
-# from numba import njit
 import numpy as np
 import pygame.gfxdraw
 #
@@ -91,8 +90,8 @@ class World:
 
         # seed
         self.create_world()
-        self.seed = uuid.uuid4().int
-        osim.seed(self.seed)
+        self.seed = secrets.randbits(16)
+        # osim.seed(self.seed)
         self.random = random.Random(self.seed)
     
     # W O R L D  D A T A  H E L P E R  F U N C T I O N S
@@ -204,9 +203,8 @@ class World:
         return chunk_index, block_pos
 
     # W O R L D  G E N E R A T I O N
-    @staticmethod
-    def fast_noise(x, y, freq):
-        return (noise.pnoise2(x * freq, y * freq) + 1) / 2
+    def fast_noise(self, x, y, freq):
+        return (noise.snoise2(x * freq, y * freq, base=self.seed) + 1) / 2
 
     def octave_noise(self, x, y, freq, amp=1, octaves=1, lac=2, pers=0.5):
         height = 0
@@ -291,7 +289,10 @@ class World:
                                 Transform([0, 0], [randf(0.1, 0.8), 0], gravity=0.03),
                                 Mob(MobType.PASSIVE),
                                 Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (30, 30), anchor="midbottom"),
-                                Sprite.from_path(Path("res", "images", "mobs", "chicken", "walk.png")),
+                                choice((
+                                    Sprite.from_path(Path("res", "images", "mobs", "chicken", "walk.png")),
+                                    Sprite.from_path(Path("res", "images", "mobs", "penguin", "walk.png")),
+                                )),
                                 Health(100),
                                 Loot({
                                     "chicken": choice((1, 2))
@@ -510,7 +511,7 @@ class World:
                 # chunks 0 and 1 need 1D noise for terrain height
                 if chunk_y in (0, 1):
                     # offset = int(self.octave_noise(block_x, 0, 0.04) * CW)
-                    offset = int(self.fast_noise(block_x, 0, freq=0.04) * CW)
+                    offset = int(self.fast_noise(block_x, 0, freq=0.04) * CW * 0.5)
                     # offset = 0
                 
                 if chunk_y < 0:
@@ -546,7 +547,7 @@ class World:
                 elif chunk_y < 20:
                     # UNDERGROUND
                     # name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.4 else self.get_ore(block_y)
-                    name = "stone" | X.b if self.fast_noise(block_x, block_y, freq=0.08) < 0.5 else self.get_ore(block_y)
+                    name = "stone" | X.b if self.fast_noise(block_x, block_y, freq=0.06) < 0.5 else self.get_ore(block_y)
                     self.bg_data[chunk_index][(block_x, block_y)] = "stone" | X.b
                 else:
                     # DEPTH LIMIT
