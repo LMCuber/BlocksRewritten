@@ -120,7 +120,7 @@ class Player:
         self.menu = menu
         # animation parameters
         self.anim_index = 0  # index of spritesheet
-        self.anim_skin = "_default"
+        self.anim_skin = "samurai"
         self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
@@ -140,6 +140,7 @@ class Player:
         self.action_when_clicked = None
         self.inventory = Inventory(self)
         self.inventory.add("torch", 99)
+        self.inventory.add("workbench", 99)
         self.last_placed = []
     
     def update(self, display, dt):
@@ -155,6 +156,7 @@ class Player:
             self.images[int(self.anim_index)]
         except IndexError:
             self.anim_index = 0
+
         if self.xvel > 0:
             image = self.images[int(self.anim_index)]
         else:
@@ -176,15 +178,26 @@ class Player:
             dy = pygame.mouse.get_pos()[1] - self.blit_rect.centery
             dx = pygame.mouse.get_pos()[0] - self.blit_rect.centerx
             angle = atan2(dy, dx)
-            m = 10
-            create_entity(
-                Transform([0, 0], [m * cos(angle), m * sin(angle)], gravity=glob.gravity * 0.1),
-                Hitbox(self.rect.center, (0, 0)),
-                Sprite.from_img(pgb.scale_by(imgload("res", "images", "bullet.png"), 3)),
-                Projectile(37),
-                Disappear.default(),
-                chunk=self.world.pos_to_tile(self.rect.center)[0]
-            )
+            m = 4
+
+            bullet_img = SurfaceBuilder((24, 4)).build()
+
+            for i in range(-12, 25):
+                _a = angle + i * pi / 24
+                create_entity(
+                    Transform(
+                        [0, 0],
+                        [m * cos(_a), m * sin(_a)],
+                        gravity=glob.gravity * 0.1,
+                        flag=TransformFlag(TransformFlags.ARROW),
+                    ),
+                    Hitbox(self.rect.center, (0, 0)),
+                    # Sprite.from_img(pgb.scale_by(imgload("res", "images", "bullet.png"), 3)),
+                    Sprite.from_img(bullet_img),
+                    Projectile(37),
+                    Disappear.default(),
+                    chunk=self.world.pos_to_tile(self.rect.center)[0]
+                )
             
     def process_event(self, event):
         if not self.game.disable_input:
@@ -227,12 +240,14 @@ class Player:
                 self.f_interact()
             
             elif event.key in [getattr(pygame, f"K_{n}") for n in range(1, 10)]:
-                index = event.key - 49
-                if index < self.inventory.num_items:
-                    self.inventory.index = index
+                if self.action == Action.TERRAIN:
+                    index = event.key - 49
+                    if index < self.inventory.num_items:
+                        self.inventory.index = index
         
         elif event.type == pygame.MOUSEWHEEL:
-            self.inventory.slide(-event.y)
+            if self.action == Action.TERRAIN:
+                self.inventory.slide(-event.y)
             
     def f_interact(self):
         for rect, base in self.world.get_blocks_around(self.rect, range_x=(-3, 4), range_y=(-3, 4), return_name=True):
@@ -266,7 +281,7 @@ class Player:
             
             elif base == "workbench":
                 self.game.midblit.set(MBT.WORKBENCH)
-
+            
     def edit(self, display):
         if self.game.substate == Substates.PLAY:
             # get mouse data
@@ -294,21 +309,22 @@ class Player:
 
                         # break the block
                         if self.block_action == BlockAction.BREAK:
-                            for xo, yo in product(range(-1, 2), repeat=2):
-                                new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
-                                if new_block_pos in self.world.data[new_chunk_index]:
-                                    self.world.break_(new_chunk_index, new_block_pos)
-                            if not (bwand(base, BF.EMPTY) or "b" in mods) and False:
+                            # for xo, yo in product(range(-1, 2), repeat=2):
+                            #     new_chunk_index, new_block_pos = self.world.correct_tile(chunk_index, block_pos, xo, yo)
+                            #     if new_block_pos in self.world.data[new_chunk_index]:
+                            #         self.world.break_(new_chunk_index, new_block_pos)
+                            if not (bwand(base, BF.EMPTY) or "b" in mods):
                                 if block_pos in self.world.data[chunk_index]:
                                     # increase the world breaking
-                                    if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
-                                        # break block since it already began breaking
-                                        self.world.breaking.anim += 10
-                                    else:
-                                        # switch to new block
-                                        self.world.breaking.index = chunk_index
-                                        self.world.breaking.pos = block_pos
-                                        self.world.breaking.anim = 0
+                                    if nbwand(base, BF.UNBREAKABLE):
+                                        if (chunk_index, block_pos) == (self.world.breaking.index, self.world.breaking.pos):
+                                            # break block since it already began breaking
+                                            self.world.breaking.anim += 10
+                                        else:
+                                            # switch to new block
+                                            self.world.breaking.index = chunk_index
+                                            self.world.breaking.pos = block_pos
+                                            self.world.breaking.anim = 0
 
                         # build a new block
                         elif self.block_action == BlockAction.PLACE:
@@ -366,7 +382,7 @@ class Player:
             self.direc = Direction.RIGHT
         if not (keys[pygame.K_a] or keys[pygame.K_d]):
             self.anim_mode = "idle"
-            self.anim_index = 0
+            # self.anim_index = 0
         else:
             self.anim_mode = "run"
         

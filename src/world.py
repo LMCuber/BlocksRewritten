@@ -89,8 +89,9 @@ class World:
         self.breaking = Breaking()
 
         # seed
-        self.create_world()
+        self.create_world() 
         self.seed = secrets.randbits(16)
+        window.window.title = f"Seed: {self.seed}"
         # osim.seed(self.seed)
         self.random = random.Random(self.seed)
     
@@ -127,11 +128,7 @@ class World:
         - Check whether block is breakable (blackstone is not)
         - Check whether the background block is air or can be fetched from bg_data
         """
-
         base, mods = blocks.norm(self.data[chunk_index][block_pos])
-
-        if bwand(base, BF.UNBREAKABLE):
-            return
         
         if "b" not in mods:
             if block_pos in self.bg_data[chunk_index]:
@@ -300,7 +297,7 @@ class World:
                                 chunk=chunk_index
                             )
                         # forest tree
-                        if _chance(1 / 24) and False:
+                        if _chance(1 / 24):
                             tree_height = _rand(10, 14)
                             tree_height = _nordis(9, 2)
                             for tree_yo in range(tree_height):
@@ -342,14 +339,14 @@ class World:
                 
                 # populate the ore veins
                 if (
-                    name == "base-ore"
-                    and _get((block_x, block_y - 1)) != "base-ore"
-                    and _get((block_x + 1, block_y)) != "base-ore"
-                    and _get((block_x, block_y + 1)) != "base-ore"
-                    and _get((block_x - 1, block_y)) != "base-ore"
+                    bwand(name, BF.ORE)
+                    and _get((block_x, block_y - 1)) is not None and nbwand(_get((block_x, block_y - 1)), BF.ORE)
+                    and _get((block_x + 1, block_y)) is not None and nbwand(_get((block_x + 1, block_y)), BF.ORE)
+                    and _get((block_x, block_y + 1)) is not None and nbwand(_get((block_x, block_y + 1)), BF.ORE)
+                    and _get((block_x - 1, block_y)) is not None and nbwand(_get((block_x - 1, block_y)), BF.ORE)
                 ):
                     ore_x, ore_y = block_x, block_y
-                    for _ in range(_nordis(blocks.ores.veins["base-ore"], 3)):
+                    for _ in range(_nordis(blocks.ores.veins.get(name, 4), 3)):
                         direc = _rand(0, 3)
                         if direc == 0: ore_x += 1
                         elif direc == 1: ore_x -= 1
@@ -430,7 +427,7 @@ class World:
                 self.wall_data[chunk_index][block_pos] = name
                 if cur is None or nbwand(cur, BF.DECOR):
                     overwrite_foreground = True
-        
+            
         # setting the actual data
         if overwrite_foreground:
             if cur is not None:
@@ -509,17 +506,17 @@ class World:
                 block_x, block_y = chunk_x * CW + rel_x, chunk_y * CH + rel_y
 
                 # chunks 0 and 1 need 1D noise for terrain height
-                if chunk_y in (0, 1):
+                if 0 <= block_y < 32:
                     # offset = int(self.octave_noise(block_x, 0, 0.04) * CW)
                     offset = int(self.fast_noise(block_x, 0, freq=0.04) * CW * 0.5)
                     # offset = 0
                 
-                if chunk_y < 0:
+                if block_y < 0:
                     # SKY
                     name = "air"
 
-                elif chunk_y == 0:
-                    # GROUND LEVEL
+                elif 0 <= block_y < 16:
+                    # SURFACE LEVEL
                     if rel_y == offset:
                         # top block in a biome
                         name = bio.blocks[biome][0]
@@ -535,20 +532,21 @@ class World:
                         name = bio.blocks[biome][1]
                         self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
 
-                elif chunk_y == 1:
-                    # DIRT-CAVE HYBRID
+                elif block_y < 32:
+                    # DIRT-STONE HYBRID
                     if rel_y <= offset:
                         name = bio.blocks[biome][1]
                         self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
                     else:
                         name = self.get_ore(block_y)
-                        self.bg_data[chunk_index][(block_x, block_y)] = name | X.b
+                        self.bg_data[chunk_index][(block_x, block_y)] = "stone" | X.b
 
-                elif chunk_y < 20:
+                elif block_y < 320:
                     # UNDERGROUND
                     # name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.4 else self.get_ore(block_y)
                     name = "stone" | X.b if self.fast_noise(block_x, block_y, freq=0.06) < 0.5 else self.get_ore(block_y)
                     self.bg_data[chunk_index][(block_x, block_y)] = "stone" | X.b
+                
                 else:
                     # DEPTH LIMIT
                     name = "blackstone"
@@ -807,9 +805,11 @@ class World:
                 blocks.breaking_sprs[int(self.breaking.anim)]
             except IndexError:
                 # drop the item
-                self.drop()
+                self.drop_broken_block()
+
                 # break the block
                 self.break_(self.breaking.index, self.breaking.pos)
+
                 # reset the breaking
                 self.breaking.index = None
                 self.breaking.pos = None
@@ -820,7 +820,7 @@ class World:
         # return information processed along the way
         return num_blocks, processed_chunks, block_rects
 
-    def drop(self):
+    def drop_broken_block(self):
         # coordinates for the drop
         x = self.breaking.pos[0] * BS
         y = self.breaking.pos[1] * BS
@@ -829,12 +829,11 @@ class World:
         # make dropped image smaller than og block image
         drop_img = pgb.scale_by(blocks.surf_images[base], 0.5)
         create_entity(
-            # Transform(
-            #     [0, 0],
-            #     [0, 0],
-            #     gravity=0.03,
-            #     sine=(0.35, 4)
-            # ),
+            Transform(
+                [0, 0],
+                [0, 0],
+                gravity=0.03,
+            ),
             Hitbox((x, y), (0, 0), anchor="center"),
             Sprite.from_img(drop_img),
             Drop(base),

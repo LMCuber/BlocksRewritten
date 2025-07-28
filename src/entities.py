@@ -71,6 +71,7 @@ class AnimData:
 class TransformFlags(IntFlag):
     NONE = auto()
     BLOCK_HALT = auto()
+    ARROW = auto()
 
 
 class DebugFlags(IntFlag):
@@ -174,6 +175,8 @@ class Transform:
     acc: float = 0
     active: bool = True
     sine: tuple[float, float] = (0, 0)
+    rot: float = 0
+    rot_vel: float = 0
 
     def __post_init__(self):
         self.def_vel = self.vel[:]
@@ -240,7 +243,6 @@ class Sprite:
         self.anim_mode = None
         self.anim_speed = 0
         self.avel = 0
-        self.rot = 0
         self.animate = False
         return self
 
@@ -248,7 +250,6 @@ class Sprite:
     def from_path(cls, path):
         self = cls()
         self.anim = 0
-        self.rot = 0
         self.anim_skin = path.parts[-2]  # "nutcracker"
         self.anim_mode = path.stem  # "run"
         # -- BELOW UPDATED EVERY FRAME --
@@ -289,16 +290,14 @@ class PhysicsSystem(ecs.System):
             
     def process(self, scroll, hitboxes, collisions, dt, chunks):
         for ent_id, chunk, (tr, hitbox, sprite) in ecs.get_components(Transform, Hitbox, Sprite, chunks=chunks):
-            sprite.rot = 0
-
             # check if hitbox needs to be initialized by a Sprite
-            if hitbox.size == (0, 0):
-                if sprite.hitbox_size is None:
-                    # no information given; use the first image as reference
-                    hitbox.size = sprite.images[0].size
-                else:
-                    # hitbox size is known
-                    hitbox.size = sprite.hitbox_size
+            # if hitbox.size == (0, 0):
+            #     if sprite.hitbox_size is not None:
+            #         # hitbox size is known
+            #         hitbox.size = sprite.hitbox_size
+            #     else:
+            #         # no information about hitbox size given; use the first image as reference
+            #         hitbox.size = sprite.images[0].size
 
             if tr.active:
                 # range for block collisions
@@ -353,8 +352,8 @@ class PhysicsSystem(ecs.System):
                         else:
                             hitbox.left = rect.right
                         # stop the horizontal movement if projectile hits a wall
-                        if ecs.has_component(ent_id, Projectile):
-                            tr.vel[0] = 0
+                        # if ecs.has_component(ent_id, Projectile):
+                        #     tr.vel[0] = 0
             
             # jump over obstacles if it is a mob
             if ecs.has_component(ent_id, Mob):
@@ -375,7 +374,6 @@ class PhysicsSystem(ecs.System):
                     # jump the mob because it sees a block in front of it
                     if extended_rect.colliderect(rect):
                         tr.vel[1] = -2
-                        # sprite.rot = 45
 
 
 class ChunkRepositioningSystem(ecs.System):
@@ -439,13 +437,16 @@ class RenderSystem(ecs.System):
                 else:
                     # don't flip
                     image = sprite.images[int(sprite.anim)]
-            else:
-                # else, just normal image
-                image = sprite.images[int(sprite.anim)]
-
-            # rotate it when needed
-            if sprite.rot != 0:
-                image = pygame.transform.rotate(image, sprite.rot)
+                            
+                # rotate it when needed
+                tr.rot += tr.rot_vel
+                if tr.flag & TransformFlags.ARROW:
+                    tr.rot = degrees(atan2(tr.vel[1], tr.vel[0]))
+                if tr.rot != 0 or True:
+                    pgb.rotate_ip(image, tr.rot)
+                else:
+                    # else, just normal image
+                    image = sprite.images[int(sprite.anim)]
          
             # scroll the hitbox to correct screen position
             scrolled_hitbox = hitbox.move(-scroll[0], -scroll[1])
@@ -587,7 +588,7 @@ class HealthDisplaySystem(ecs.System):
             
     def process(self, scroll, chunks):
         for ent_id, chunk, (hitbox, sprite, health) in ecs.get_components(Hitbox, Sprite, Health, chunks=chunks):
-            # check if the mob is dead
+            # check if the mob is dead (for dropping loot)
             if health <= 0:
                 # drop the loot if any
                 if (loot := ecs.try_component(ent_id, Loot)):
@@ -611,6 +612,7 @@ class HealthDisplaySystem(ecs.System):
                 # delete as last
                 ecs.delete_entity(ent_id, chunk)
 
+            # render the health bar
             if 0 < health.value < health.max:
                 # decrease health bar visual using lerp
                 health.trail -= (health.trail - health.value) * 0.01
@@ -618,6 +620,7 @@ class HealthDisplaySystem(ecs.System):
                 # display the health bar
                 bg_rect = pygame.Rect(0, 0, 60, 8)
                 bg_rect.midtop = (hitbox.centerx - scroll[0], hitbox.y - 20 - scroll[1])
+                pgb.fill_rect(self.display, WHITE, bg_rect)
                 pgb.draw_rect(self.display, BLACK, bg_rect)
                 hl_rect = bg_rect.inflate(-4, -4)
                 hl_rect.width *= health.value / health.max

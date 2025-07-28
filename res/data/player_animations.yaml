@@ -16,8 +16,9 @@ samurai:
         frames: 8
         offset: -6
     idle:
-        frames: 1
+        frames: 2
         offset: -4
+        speed: 0.012
 
 ra:
     idle:
@@ -27,6 +28,10 @@ ra:
     run:
         frames: 4
         offset: -15
+
+corsair:
+    idle:
+        frames: 4
 
 _default:
     _default_run:

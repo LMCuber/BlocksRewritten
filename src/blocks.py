@@ -158,7 +158,9 @@ class BF(IntFlag):
 class OreData:
     def __init__(self):
         self.veins = {
-            "base-ore": 4
+            "coal": 5,
+            "iron": 4,
+            "diamond": 3,
         }
 
 
@@ -181,6 +183,9 @@ flags = defaultdict(lambda: BF.NONE, {
     "blackstone": BF.UNBREAKABLE,
     "torch": BF.LIGHT_SOURCE | BF.WALKABLE | BF.DECOR,
     "chicken": BF.FOOD,
+    "diamond": BF.ORE,
+    "coal": BF.ORE,
+    "iron": BF.ORE,
 })
 
 for block, flag in flags.items():
@@ -210,7 +215,7 @@ block_list = [
     ["anvil",           "furnace",          "soil_p",          "bush",            "wooden-stairs",   "",                 "base-ore",    "bread",       "wood_f_vrLR",  "wood_sv_vrN", "wood_p_vrLR", ""],
     ["blackstone",      "closed-core",      "base-core",       "lava",            "base-orb",        "magic-table",      "base-armor",  "altar",       "wood_f_vrR",   "",            "wood_p_vrR",  ""],
     ["closed-door",     "wheat_st1",        "wheat_st2",       "wheat_st3",       "wheat_st4",       "stone-bricks",     "",            "arrow",       "wood_f_vrL",   "",            "wood_p_vrL",  ""],
-    ["open-door",       "lotus",            "daivinus",        "dirt_f_depr",     "grass3",          "tool-crafter",     "bricks",      "solar-panel", "wood_f_vrN",   "",            "wood_p_vrN",  "wood_p"],
+    ["open-door",       "lotus",            "daivinus",        "dirt_f_depr",     "grass3",          "forge-table",      "bricks",      "solar-panel", "wood_f_vrN",   "",            "wood_p_vrN",  "wood_p"],
     ["cable_vrF",       "cable_vrH",        "karabiner",       "rope",            "blue_barrel",     "red_barrel",       "gun-crafter", "torch",       "grass_f",      "",            "",            "pillar_vr3"],
     ["",                "",                 "",                "corn-crop_vr3.2", "corn-crop_vr4.2", "",                 "",            "",            "soil_f",       "soil_t",      "",            "pillar_vr2"],
     ["",                "corn-crop_vr1.1",  "corn-crop_vr2.1", "corn-crop_vr3.1", "corn-crop_vr4.1", "cattail-top",      "pampas-top",  "",            "dirt_f",       "dirt_t",      "",            "pillar_vr1"],

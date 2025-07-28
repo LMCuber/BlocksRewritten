@@ -8,10 +8,12 @@ from . import fonts
 # M I D B L I T  A S S E T S
 class MBT(Enum):
     WORKBENCH = auto()
+    FORGE_TABLE = auto()
 
 
 midblits = {
-    MBT.WORKBENCH: SurfaceBuilder((400, 200)).fill((20, 40, 89)).set_alpha(80).build()
+    MBT.FORGE_TABLE: SurfaceBuilder((400, 200)).fill((20, 40, 89)).set_alpha(80).build(),
+    MBT.WORKBENCH: SurfaceBuilder((400, 200)).fill(BROWN).set_alpha(230).build(),
 }
 
 
@@ -61,7 +63,7 @@ class Midblit:
         self.display.blit(self.img, self.rect)
         
         # sword
-        if self.mode == MBT.WORKBENCH:
+        if self.mode == MBT.FORGE_TABLE:
             self.game.sword.update()
             pgb.write(self.display, "center", f"{self.game.sword.num_vertices} vertices", fonts.orbitron[14], BLACK, *self.window.center)
     
