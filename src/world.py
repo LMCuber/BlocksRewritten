@@ -3,9 +3,8 @@ import noise
 from enum import Enum
 from collections import deque
 import secrets
-from queue import Queue
-import numpy as np
-import pygame.gfxdraw
+import json
+import pickle
 #
 from pyengine.pgbasics import *
 from pyengine.ecs import *
@@ -18,7 +17,6 @@ from .blocks import (
 )
 from . import fonts
 from . import blocks
-
 
 
 # C L A S S E S
@@ -84,6 +82,7 @@ class World:
             self.light_textures: dict[Pos, dict[Pos, Texture]]              = {} # light textures
         self.source_to_children: dict[Pos, dict[Pos, set[tuple[Pos, Pos]]]] = {} # saves all blocks that have been affected by a light source
         self.child_to_source:    dict[tuple[Pos, Pos], tuple[Pos, Pos]]     = {} # pointer from all children to their parent
+        self.light_thread_active = False
 
         # world interactive stuff
         self.breaking = Breaking()
@@ -94,6 +93,18 @@ class World:
         window.window.title = f"Seed: {self.seed}"
         # osim.seed(self.seed)
         self.random = random.Random(self.seed)
+    
+    # S A V I N G  A N D  L O A D I N G
+    def save(self):
+        return
+        world_data = {
+            "seed": self.seed,
+            "data": {str(k): {str(i): j for i, j in v.items()} for k, v in self.data.items()},
+        }
+        with open(Path(".game_data", f"{self.seed}.json"), "w") as f:
+            json.dump(world_data, f)
+        with open(Path(".game_data", f"{self.seed}.world"), "w") as f:
+            pickle.dump(ecs.serialize(), f)
     
     # W O R L D  D A T A  H E L P E R  F U N C T I O N S
     @property
@@ -154,6 +165,9 @@ class World:
         return ret
     
     def screen_pos_to_tile(self, pos, scroll):
+        """
+        Converts mouse position to chunk_index and block_pos
+        """
         x, y = pos
         # x and y must be unscaled and unscrolled; returns chunk and abs_pos ([chunk][pos] notation for accessation :D :P :/ :] Ü)
         target_x = floor(x / (BS * CW) + scroll[0] / (BS * CW))
@@ -164,13 +178,19 @@ class World:
         abs_pos = (abs_x, abs_y)
         return target_chunk, abs_pos
 
-    def tile_to_screen_pos(self, abs_pos, scroll):
-        abs_x, abs_y = abs_pos
-        screen_x = (abs_x - scroll[0]) * BS
-        screen_y = (abs_y - scroll[1]) * BS
+    def tile_to_screen_pos(self, block_pos, scroll):
+        """
+        Converts block_pos to mouse position
+        """
+        block_x, block_y = block_pos
+        screen_x = block_x * BS - scroll[0]
+        screen_y = block_y * BS - scroll[1]
         return screen_x, screen_y
 
     def pos_to_tile(self, pos):
+        """
+        Converts world coordinate to chunk_index, block_pos
+        """
         return ((
                 floor(pos[0] / (CW * BS)),
                 floor(pos[1] / (CH * BS)),
@@ -280,28 +300,44 @@ class World:
                         # entitites
                         if not _spawned and chunk_index == (0, 0):
                             _spawned = True
-                        
-                        if _chance(1 / 20):
+                        if _chance(1 / 1) and not _spawned:
                             create_entity(
-                                Transform([0, 0], [randf(0.1, 0.8), 0], gravity=0.03),
-                                Mob(MobType.PASSIVE),
-                                Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (30, 30), anchor="midbottom"),
-                                choice((
-                                    Sprite.from_path(Path("res", "images", "mobs", "chicken", "walk.png")),
-                                    Sprite.from_path(Path("res", "images", "mobs", "penguin", "walk.png")),
-                                )),
+                                Transform(Vec2(0, 0), Vec2(0, 0), gravity=0, sines=[0, 5]),
+                                Mob(MobType.NEUTRAL),
+                                Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 8), (0, 0), anchor="midbottom"),
+                                Sprite.from_path(Path("res", "images", "mobs", "bee", "walk.png")),
                                 Health(100),
-                                Loot({
-                                    "chicken": choice((1, 2))
-                                }),
+                                Bee(),
+                                NoJump(),
                                 chunk=chunk_index
                             )
+                            _spawned = True
+                        
+                        # create_entity(
+                        #     Transform(Vec2(0, 0), Vec2(randf(0.1, 0.8), 0), gravity=0.03),
+                        #     Mob(MobType.PASSIVE),
+                        #     Hitbox((block_pos[0] * BS, block_pos[1] * BS - BS * 6), (30, 30), anchor="midbottom"),
+                        #     Sprite.from_path(Path("res", "images", "mobs", "penguin", "walk.png")),
+                        #     Health(100),
+                        #     Loot({
+                        #         "chicken": choice((1, 2))
+                        #     }),
+                        #     chunk=chunk_index
+                        # )
+                        
+                        # poppy
+                        if _chance(1 / 20):
+                            if _chance(0.6):
+                                poppy_color = "red"
+                            else:
+                                poppy_color = "yellow"
+                            _set(f"{poppy_color}-poppy", (block_x, block_y - 1))
+
                         # forest tree
                         if _chance(1 / 24):
-                            tree_height = _rand(10, 14)
                             tree_height = _nordis(9, 2)
                             for tree_yo in range(tree_height):
-                                wood_x, wood_y = block_x, block_y - tree_yo - 1
+                                wood_x, wood_y = block_x, block_y - tree_yo - 1 - 5
                                 wood_suffix = ""
                                 leaf_name = "leaf_f"
                                 leaf_chance = 1 / 2.4
@@ -345,6 +381,7 @@ class World:
                     and _get((block_x, block_y + 1)) is not None and nbwand(_get((block_x, block_y + 1)), BF.ORE)
                     and _get((block_x - 1, block_y)) is not None and nbwand(_get((block_x - 1, block_y)), BF.ORE)
                 ):
+                    # ore vein is available to populate
                     ore_x, ore_y = block_x, block_y
                     for _ in range(_nordis(blocks.ores.veins.get(name, 4), 3)):
                         direc = _rand(0, 3)
@@ -352,8 +389,7 @@ class World:
                         elif direc == 1: ore_x -= 1
                         elif direc == 2: ore_y += 1
                         elif direc == 3: ore_y -= 1
-                        if _get((ore_x, ore_y)) == "stone":
-                            _set("base-ore", (ore_x, ore_y))
+                        _set(name, (ore_x, ore_y))
 
                 # update chunk data and blit block image
                 if name != og_name:
@@ -361,8 +397,8 @@ class World:
     
     def get(self, chunk_index, block_pos):
         if chunk_index in self.data:
-            return self.data[chunk_index].get(block_pos, None)
-        return None
+            return self.data[chunk_index].get(block_pos, False)
+        return False
     
     def set(self, chunk_index, block_pos, name, allow_propagation=True):
         """
@@ -451,15 +487,15 @@ class World:
             if block_pos not in self.lightmap[chunk_index]:
                 self.update_lightmap(chunk_index, block_pos, 0)
         
-        # update chunk surface
-        base, mods = blocks.norm(name)
-        if "b" in mods:
-            image = blocks.surf_images[base | X.b]
-        else:
-            image = blocks.surf_images[base]
-
         # cache chunk texture if wanted
         if self.cache_chunk_textures:
+            # update chunk surface
+            base, mods = blocks.norm(name)
+            if "b" in mods:
+                image = blocks.surf_images[base | X.b]
+            else:
+                image = blocks.surf_images[base]
+
             # update surface -> texture method
             self.chunk_surfaces[chunk_index].blit(image, (block_pos[0] % CW * BS, block_pos[1] % CH * BS))
             if window.gpu:
@@ -500,6 +536,7 @@ class World:
 
         # generate the chunk
         biome = Biome.FOREST
+        
         for rel_y in range(CH):
             for rel_x in range(CW):
                 # init variables
@@ -507,7 +544,6 @@ class World:
 
                 # chunks 0 and 1 need 1D noise for terrain height
                 if 0 <= block_y < 32:
-                    # offset = int(self.octave_noise(block_x, 0, 0.04) * CW)
                     offset = int(self.fast_noise(block_x, 0, freq=0.04) * CW * 0.5)
                     # offset = 0
                 
@@ -543,7 +579,6 @@ class World:
 
                 elif block_y < 320:
                     # UNDERGROUND
-                    # name = "stone" | X.b if self.octave_noise(block_x, block_y, freq=0.04, octaves=3, lac=2) < 0.4 else self.get_ore(block_y)
                     name = "stone" | X.b if self.fast_noise(block_x, block_y, freq=0.06) < 0.5 else self.get_ore(block_y)
                     self.bg_data[chunk_index][(block_x, block_y)] = "stone" | X.b
                 
@@ -595,55 +630,71 @@ class World:
             # remove the source from the child
             del self.child_to_source[child_key]
 
-    def propagate_light(self, chunk_index, block_pos=None):
-        # initialize data structures
-        queue = deque()
-        light_sources = set()
+    def propagate_thread(self):
 
-        # save all light sources
-        for block_pos in (self.lightmap[chunk_index] if block_pos is None else (block_pos,)):
-            if block_pos not in self.data[chunk_index]:
-                continue
-            name = self.data[chunk_index][block_pos]
-            if bwand(name, BF.LIGHT_SOURCE):
-                light = blocks.params[name]["light"]
-                light_sources.add((chunk_index, block_pos))
-                self.update_lightmap(chunk_index, block_pos, light)
-
-                src_key = (chunk_index, block_pos)
-                queue.append((chunk_index, block_pos, light, src_key))
-
-                self.add_child_to_source(src_key, src_key)
-
-        # directions of propagation
-        offsets = [(1, 0), (0, 1), (-1, 0), (0, -1)]
-        n = 0
         
-        # work through the queue in a breadth-first-search fashion
-        while queue:
-            n += 1
-            chunk_index, block_pos, desired_light, current_source = queue.popleft()
 
-            for (xo, yo) in offsets:
-                new_chunk_index, new_block_pos = self.correct_tile(chunk_index, block_pos, xo, yo)
 
-                new_light = desired_light - blocks.params[self.data[current_source[0]][current_source[1]]].get("light_falloff", 1)
 
-                # make sure that the lighting data (lightmap and -surface) of neighboring chunk is initialized
-                self.init_light(new_chunk_index)
+        self.light_thread_active = False
 
-                # if the block doesn't exist yet, make it zero by default
-                if new_block_pos not in self.lightmap[new_chunk_index]:
-                    self.update_lightmap(new_chunk_index, new_block_pos, 0)
+    def propagate_light(self, chunk_index, block_pos=None):
+        if not self.menu.lighting:
+            return
 
-                # return if light becomes too dim
-                if new_light < 0:
+        def propagate():
+            nonlocal chunk_index, block_pos
+
+            # initialize data structures
+            queue = deque()
+            light_sources = set()
+
+            # save all light sources
+            for block_pos in (self.lightmap[chunk_index] if block_pos is None else (block_pos,)):
+                if block_pos not in self.data[chunk_index]:
                     continue
+                name = self.data[chunk_index][block_pos]
+                if bwand(name, BF.LIGHT_SOURCE):
+                    light = blocks.params[name]["light"]
+                    light_sources.add((chunk_index, block_pos))
+                    self.update_lightmap(chunk_index, block_pos, light)
 
-                # if new lighting is higher than the lighting already there, overwrite it because this light source is brighter than its previous light source
-                if new_light > self.lightmap[new_chunk_index][new_block_pos]:
-                    self.update_lightmap(new_chunk_index, new_block_pos, new_light, src_key=current_source)
-                    queue.append((new_chunk_index, new_block_pos, new_light, current_source))
+                    src_key = (chunk_index, block_pos)
+                    queue.append((chunk_index, block_pos, light, src_key))
+
+                    self.add_child_to_source(src_key, src_key)
+
+            # directions of propagation
+            offsets = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+            n = 0
+            
+            # work through the queue in a breadth-first-search fashion
+            while queue:
+                n += 1
+                chunk_index, block_pos, desired_light, current_source = queue.popleft()
+
+                for (xo, yo) in offsets:
+                    new_chunk_index, new_block_pos = self.correct_tile(chunk_index, block_pos, xo, yo)
+
+                    new_light = desired_light - blocks.params[self.data[current_source[0]][current_source[1]]].get("light_falloff", 1)
+
+                    # make sure that the lighting data (lightmap and -surface) of neighboring chunk is initialized
+                    self.init_light(new_chunk_index)
+
+                    # if the block doesn't exist yet, make it zero by default
+                    if new_block_pos not in self.lightmap[new_chunk_index]:
+                        self.update_lightmap(new_chunk_index, new_block_pos, 0)
+
+                    # return if light becomes too dim
+                    if new_light < 0:
+                        continue
+
+                    # if new lighting is higher than the lighting already there, overwrite it because this light source is brighter than its previous light source
+                    if new_light > self.lightmap[new_chunk_index][new_block_pos]:
+                        self.update_lightmap(new_chunk_index, new_block_pos, new_light, src_key=current_source)
+                        queue.append((new_chunk_index, new_block_pos, new_light, current_source))
+            
+        propagate()
 
     def update_lightmap(self, chunk_index, block_pos, light, src_key=None):
         # add this block to the contributions (children) of the given src_key
@@ -664,7 +715,6 @@ class World:
             pygame.draw.rect(self.light_surfaces[chunk_index], (0, 0, 0, alpha), (*blit_pos, BS, BS))
             if window.gpu:
                 self.light_textures[chunk_index] = pgb.T(self.light_surfaces[chunk_index])
-
     
     # U P D A T E  L O O P
     def update(self, display, scroll, game, dt):
@@ -735,8 +785,15 @@ class World:
         #  B E F O R E  L I G H T I N G  &  A F T E R  B L O C K S
         # for chunk_index in processed_chunks:
         #     game.num_rendered_entities += game.render_system.process(game.scroll, self.menu.hitboxes, window.gpu, chunks=[chunk_index])
-        game.num_rendered_entities += game.render_system.process(game.scroll, self.menu.hitboxes, window, chunks=processed_chunks)
+        
+        if not self.light_thread_active:
+            DThread(target=self.propagate_thread).start()
+            self.light_thread_active = True
+        
+        # process the render system
+        game.num_rendered_entities += game.render_system.process(game.scroll, self.menu.hitboxes, window, dt, chunks=processed_chunks)
 
+        # update the player
         game.player.update(window.display, dt)
         
         # L I G H T I N G  &  A F T E R
@@ -764,6 +821,8 @@ class World:
                             else:
                                 light_surf = SurfaceBuilder((BS, BS)).fill((0, 0, 0)).set_alpha(alpha).build()
                                 window.display.blit(light_surf, blit_rect)
+                
+                game.player.post_lighting_update()
 
                 # show chunk borders
                 if self.menu.chunk_borders.checked:
@@ -824,18 +883,20 @@ class World:
         # coordinates for the drop
         x = self.breaking.pos[0] * BS
         y = self.breaking.pos[1] * BS
-        # block image
-        base, _ = blocks.norm(self.data[self.breaking.index][self.breaking.pos])
-        # make dropped image smaller than og block image
-        drop_img = pgb.scale_by(blocks.surf_images[base], 0.5)
+
+        # drop a normal block (not a variation)
+        drop_name, mods, vers = blocks.drop(self.data[self.breaking.index][self.breaking.pos])
+        drop_img = pgb.scale_by(blocks.surf_images[drop_name], 0.5)
+
+        # create the enity
         create_entity(
             Transform(
-                [0, 0],
-                [0, 0],
+                Vec2(0, 0),
+                Vec2(0, 0),
                 gravity=0.03,
             ),
             Hitbox((x, y), (0, 0), anchor="center"),
             Sprite.from_img(drop_img),
-            Drop(base),
+            Drop(drop_name),
             chunk=self.breaking.index
         )

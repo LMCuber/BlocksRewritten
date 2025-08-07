@@ -13,7 +13,11 @@ class MBT(Enum):
 
 midblits = {
     MBT.FORGE_TABLE: SurfaceBuilder((400, 200)).fill((20, 40, 89)).set_alpha(80).build(),
-    MBT.WORKBENCH: SurfaceBuilder((400, 200)).fill(BROWN).set_alpha(230).build(),
+    MBT.WORKBENCH: SurfaceBuilder((400, 200))
+                    .fill((92, 64, 51))
+                    .draw_rect((33, 23, 12), (0, 0, 400, 200), 5)
+                    .set_alpha(200)
+                    .build(),
 }
 
 

@@ -40,8 +40,8 @@ class Inventory:
         self.game = self.player.game
 
         self.max_items = 11
-        self.keys: list[str] = []
-        self.values: list[int] = []
+        self.keys: SmartList[str] = SmartList([None] * self.max_items)
+        self.values: SmartList[int] = SmartList([None] * self.max_items)
         self.index: int = 0
     
     def __getitem__(self, key):
@@ -59,23 +59,19 @@ class Inventory:
     def num_items(self):
         return len(list(filter(None, self.values)))  # gets all truthy elements from self.values and returns its length
     
-    @property
-    def can_add(self):
-        return self.num_items < self.max_items
-    
     def use(self):
         self.values[self.index] -= 1
+        if self.values[self.index] == 0:
+            self.keys[self.index] = None
     
     def add(self, item, amount=1):
-        if not self.can_add:
-            return
         if item in self.keys:
             # already in inventory
             self.values[self.keys.index(item)] += 1
         else:
             # doesnt exist, so add new
-            self.keys.append(item)
-            self.values.append(amount)
+            self.keys[self.keys.findi(lambda x: x is None)] = item
+            self.values[self.values.findi(lambda x: x is None)] = amount
     
     def slide(self, amount):
         self.index += amount
@@ -85,15 +81,14 @@ class Inventory:
             self.index = max(self.index, 0)
     
     def update(self, display):
-        # inventory image
-        mouse = pygame.mouse.get_pos()
+        # inventory image itself and location variables
         inv_rect = inventory_img.get_rect(midtop=(window.width / 2, 20))
         display.blit(inventory_img, inv_rect)
         x, y = inv_rect.x + S * 2, inv_rect.y + S * 2
         rects = []
 
-        # blocks in the inventory
-        for i, (name, amount) in enumerate(zip(self.keys, self.values)):
+        # render the blocks in the inventory
+        for i, (name, amount) in enumerate(filter(lambda x: x[0] is not None, zip(self.keys, self.values))):
             # render the block
             blit_pos = (x + i * (BS + S * 4), y)
             rects.append(blocks.images[name].get_rect(topleft=blit_pos))
@@ -120,7 +115,7 @@ class Player:
         self.menu = menu
         # animation parameters
         self.anim_index = 0  # index of spritesheet
-        self.anim_skin = "samurai"
+        self.anim_skin = "_default"
         self.anim_mode = "idle"  # e.g. walk, run, attack 1, etc.
         # image, rectangle, hitbox, whatever
         self.images = AnimData.get(self.anim_skin, self.anim_mode)
@@ -141,12 +136,21 @@ class Player:
         self.inventory = Inventory(self)
         self.inventory.add("torch", 99)
         self.inventory.add("workbench", 99)
+        self.inventory.add("dynamite", 99)
         self.last_placed = []
     
     def update(self, display, dt):
         self.move(dt)
         self.edit(display)
         self.draw(display, dt)
+    
+    def post_lighting_update(self):
+        # draw a rectangle around the hovering block
+        if self.action == Action.TERRAIN:
+            mouse = pygame.mouse.get_pos()
+            chunk_index, block_pos = self.world.screen_pos_to_tile(pygame.mouse.get_pos(), self.game.scroll)
+            screen_pos = self.world.tile_to_screen_pos(block_pos, self.game.scroll)
+            pgb.draw_rect(window.display, ORANGE, (*screen_pos, BS, BS))
 
     def draw(self, display, dt):
         # get the current animation image
@@ -182,18 +186,18 @@ class Player:
 
             bullet_img = SurfaceBuilder((24, 4)).build()
 
-            for i in range(-12, 25):
+            for i in range(-2, 3):
                 _a = angle + i * pi / 24
                 create_entity(
                     Transform(
-                        [0, 0],
-                        [m * cos(_a), m * sin(_a)],
+                        Vec2(0, 0),
+                        Vec2(m * cos(_a), m * sin(_a)),
                         gravity=glob.gravity * 0.1,
                         flag=TransformFlag(TransformFlags.ARROW),
                     ),
                     Hitbox(self.rect.center, (0, 0)),
-                    # Sprite.from_img(pgb.scale_by(imgload("res", "images", "bullet.png"), 3)),
-                    Sprite.from_img(bullet_img),
+                    Sprite.from_img(pgb.scale_by(imgload("res", "images", "bullet.png"), 3)),
+                    # Sprite.from_img(bullet_img),
                     Projectile(37),
                     Disappear.default(),
                     chunk=self.world.pos_to_tile(self.rect.center)[0]
@@ -223,7 +227,7 @@ class Player:
                 # drop_img = pygame.transform.scale_by(blocks.images["soil_f"], 0.5)
                 # for _ in range(1000):
                 #     create_entity(
-                #         Transform([300, 300], [0, 0], gravity=0.03, sine=(0.35, 4)),
+                #         Transform([300, 300], [0, 0], gravity=0.03),
                 #         Hitbox((-rand(-50, 50), 0), (0, 0), anchor="midbottom"),
                 #         Sprite.from_img(drop_img),
                 #         # Drop("soil_f"),
@@ -290,18 +294,18 @@ class Player:
             
             # interact your mouse with the blocks
             if not self.game.disable_input:
+                chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
+
                 if mouses[0]:
                     if self.action == Action.TERRAIN and self.action_when_clicked == Action.TERRAIN:
-                        # check where the mouse wants to place a block and whether it's prohibited
-                        chunk_index, block_pos = self.world.screen_pos_to_tile(mouse, self.game.scroll)
                         base, mods = blocks.norm(self.world.data[chunk_index].get(block_pos, "air"))
 
                         # first decide what to do with the click depending on the block underneath
                         if self.block_action == BlockAction.NONE:
                             # decide whether the first block you click on should be broken, edited, created on, etc.
                             if bwand(base, BF.EMPTY) or "b" in mods:
-                                if nbwand(base, BF.UNPLACABLE):
-                                    # the block should be placed
+                                # check if block is placable or food or something
+                                if self.inventory.current is not None and nbwand(self.inventory.current, BF.UNPLACABLE):
                                     self.block_action = BlockAction.PLACE
                             else:
                                 # the block should be broken

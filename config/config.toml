@@ -1,7 +1,7 @@
 [game]
 profile = 0
 profile_to_file = 1
-# timer = 2000
+# timer = 1000
 
 [window]
 width = 1080

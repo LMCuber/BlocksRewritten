@@ -45,37 +45,7 @@ def palettize_img(img, palette):
 
 
 # B L O C K  N A M E  S P E C I F I C  F U N C T I O N S
-"""
-Block modifications:
-    b - background block
-"""
-@lru_cache
-def norm(name: str) -> tuple[str, list[str]]:
-    """
-    Returns the normalized version of a block name, devoid of all modifiers e.g. stone|b (background stone) -> stone
-    Normalized values are split by pipes.
-    Quick check to know whether a fragmentation should be a norm or pure: if it has its own image and data, its a norm (e.g. tree_f has an image but tree_f|b does not)
-    """
-    spl = name.split("|")
-    base: str = spl[0]
-    mods: list[str] = spl[1:]
-    return base, mods
-
-
-@lru_cache
-def pure(name: str) -> tuple[str, list[str], str, list[str]]:
-    """
-    Returns the pure version, as well as the normalized version, of a block, which is its most important part.
-    This is to make sure that for e.g. tree_f and tree_p don't get differentiated when checking for "wood" for example.
-    (Pure values are split by underscores).
-    """
-    base, mods = norm(name)
-    spl = base.split("_")
-    pure = spl[0]
-    vers = spl[1:]
-    return pure, mods, vers
-
-
+# flags
 @lru_cache
 def bwand(name: str, flag: BF):
     return get_flags(name) & flag
@@ -93,10 +63,51 @@ def get_flags(name):
 
 
 """
-"Repr" here means a player readable block name, such as "wood_f_vrN" -> "forest wood variation 1"
+Block modifications:
+    b - background block
 """
 @lru_cache
+def norm(name: str) -> tuple[str, list[str]]:
+    """
+    Returns the base (name without mods) and mods
+    """
+    spl = name.split("|")
+    base: str = spl[0]
+    mods: list[str] = spl[1:]
+    return base, mods
+
+
+@lru_cache
+def pure(name: str) -> tuple[str, list[str], str, list[str]]:
+    """
+    Returns pure version, mods, versions.
+    """
+    base, mods = norm(name)
+    spl = base.split("_")
+    pure_ = spl[0]
+    vers = spl[1:]
+    return pure_, mods, vers
+
+
+@lru_cache
+def drop(name: str):
+    """
+    Returns mods, keeps vers BUT converts variations to neutral (vrN)
+    """
+    pure_, mods, vers = pure(name)
+    for ver in vers:
+        if is_vr(ver):
+            pure_ += "_vrN"
+        else:
+            pure_ += f"_{ver}"
+    return pure_, mods, vers
+
+
+@lru_cache
 def repr(name):
+    """
+    Converts to player readable name. Should only be used for displaying block name in UI and not in logic.
+    """
     pure_, _, vers = pure(name)
     ret = pure_
 
@@ -107,7 +118,7 @@ def repr(name):
 
     # complex "vr" (variation) pattern
     for ver in vers:
-        if (mat := re.match(r"vr(.+)", ver)):  # herculean use of the walrus operator
+        if (mat := is_vr(ver)):  # herculean use of the walrus operator
             mat = mat.group(1)
 
             if mat == "L":
@@ -119,6 +130,11 @@ def repr(name):
                 ret = f"{ret} variation {mat}"
 
     return ret
+
+
+@lru_cache
+def is_vr(ver):
+    return re.match(r"vr(.+)", ver)
 
 
 # C L A S S E S
@@ -154,6 +170,8 @@ class BF(IntFlag):
     FOOD = auto()
     DECOR = auto()
 
+    FLOWER = WALKABLE
+
 
 class OreData:
     def __init__(self):
@@ -186,6 +204,9 @@ flags = defaultdict(lambda: BF.NONE, {
     "diamond": BF.ORE,
     "coal": BF.ORE,
     "iron": BF.ORE,
+    "lotus": BF.FLOWER,
+    "red-poppy": BF.FLOWER,
+    "yellow-poppy": BF.FLOWER,
 })
 
 for block, flag in flags.items():
@@ -217,7 +238,7 @@ block_list = [
     ["closed-door",     "wheat_st1",        "wheat_st2",       "wheat_st3",       "wheat_st4",       "stone-bricks",     "",            "arrow",       "wood_f_vrL",   "",            "wood_p_vrL",  ""],
     ["open-door",       "lotus",            "daivinus",        "dirt_f_depr",     "grass3",          "forge-table",      "bricks",      "solar-panel", "wood_f_vrN",   "",            "wood_p_vrN",  "wood_p"],
     ["cable_vrF",       "cable_vrH",        "karabiner",       "rope",            "blue_barrel",     "red_barrel",       "gun-crafter", "torch",       "grass_f",      "",            "",            "pillar_vr3"],
-    ["",                "",                 "",                "corn-crop_vr3.2", "corn-crop_vr4.2", "",                 "",            "",            "soil_f",       "soil_t",      "",            "pillar_vr2"],
+    ["red-poppy",       "yellow-poppy",      "",                "corn-crop_vr3.2", "corn-crop_vr4.2", "",                 "",            "",            "soil_f",       "soil_t",      "",            "pillar_vr2"],
     ["",                "corn-crop_vr1.1",  "corn-crop_vr2.1", "corn-crop_vr3.1", "corn-crop_vr4.1", "cattail-top",      "pampas-top",  "",            "dirt_f",       "dirt_t",      "",            "pillar_vr1"],
     ["corn-crop_vr0.0", "corn-crop_vr1.0",  "corn-crop_vr2.0", "corn-crop_vr3.0", "corn-crop_vr4.0", "cattail",          "pampas",      "",            "",             "",            "",            "pillar_vr0"],
 ]
@@ -242,6 +263,5 @@ for name, image in surf_images.copy().items():
 images = {k: pgb.T(v) for k, v in surf_images.items()}
 
 # pygame.image.save(palettize_img(_spritesheet, palette_img), "pqweqwe.png")
-
 breaking_sprs = pgb.imgload("res", "images", "visuals", "breaking.png", scale=S, frames=4)
 inventory_img = pgb.imgload("res", "images", "visuals", "inventory.png", scale=S)

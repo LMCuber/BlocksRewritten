@@ -35,8 +35,6 @@ def tinysaurus():
     return surf
 
 
-# anim data masterclass (hehe)
-# not fully lil bro but the fries in the ag
 class AnimData:
     data = {}
     for entity_type in ["player_animations", "mobs", "statics"]:
@@ -107,7 +105,6 @@ class Mob:
         self.last_frantic_twitch = ticks()
 
 
-# primitive components (int, float, str, etc.) (bool can't exist since only the True and False singletons can be bool)
 class MutInt:
     def __init__(self, value):
         self.value = value
@@ -165,25 +162,28 @@ class Disappear:
         return self
 
 
-# dataclass components (structs without logical initialization)
 @dataclass
 class Transform:
-    pos: list[float, float]
-    vel: list[float, float]
+    pos: Vec2
+    vel: Vec2
     gravity: float = glob.gravity
     flag: TransformFlag = TransformFlag(TransformFlags.NONE)
-    acc: float = 0
+    acc: Vec2 | None = None
     active: bool = True
-    sine: tuple[float, float] = (0, 0)
+    sines: tuple[float, float] = (0, 0)
     rot: float = 0
     rot_vel: float = 0
 
     def __post_init__(self):
-        self.def_vel = self.vel[:]
+        self.acc = Vec2(0, 0)
+        self.def_vel = self.vel.copy()
         self.last_tile = None
         self.last_blocks_around = None
-        if any(self.sine):
-            self.sine_offset = randf(0, 2 * pi)
+        if any(self.sines):
+            self.sine_offsets = [
+                randf(0, 2 * pi),
+                randf(0, 2 * pi),
+            ]
 
 
 @dataclass
@@ -227,7 +227,6 @@ class Loot:
     data: dict[str, int]
 
 
-# class components (classes with logical initialization)
 class Sprite:
     @classmethod
     def from_img(cls, img):
@@ -280,6 +279,13 @@ class DamageText:
 @dataclass
 class Headbutter:
     force: int = 10
+
+
+class Flinch: pass
+
+class Bee: pass
+
+class NoJump: pass
     
 
 # SYSTEMS -----------------------------------------------------
@@ -301,15 +307,19 @@ class PhysicsSystem(ecs.System):
 
             if tr.active:
                 # range for block collisions
-                x_disp = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
+                x_disp = ceil(abs(tr.vel.x / BS)) + ceil(hitbox.width / 2 / BS)
                 range_x = (-x_disp, x_disp)
-                y_disp = ceil(abs(tr.vel[1] / BS)) + ceil(hitbox.height / 2 / BS)
+                y_disp = ceil(abs(tr.vel.y / BS)) + ceil(hitbox.height / 2 / BS)
                 range_y = (-y_disp, y_disp)
 
                 # vertical movement
-                tr.vel[1] += tr.gravity * dt * 0.5
-                hitbox.y += tr.vel[1] * dt
-                tr.vel[1] += tr.gravity * dt * 0.5
+                tr.vel.y += tr.gravity * dt * 0.5
+                tr.vel.y += tr.acc[1] * dt * 0.5
+                #
+                hitbox.y += tr.vel.y * dt
+                #
+                tr.vel.y += tr.gravity * dt * 0.5
+                tr.vel.y += tr.acc[1] * dt * 0.5
 
                 # get the cached neighboring blocks if on same block as last frame
                 current_tile = self.world.pos_to_tile(hitbox.center)
@@ -328,7 +338,7 @@ class PhysicsSystem(ecs.System):
                         pgb.draw_rect(self.display, ORANGE, rect.move(-scroll[0], -scroll[1]), 1)
                         
                     if hitbox.colliderect(rect):
-                        if tr.vel[1] > 0:
+                        if tr.vel.y > 0:
                             hitbox.bottom = rect.top
                         else:
                             hitbox.top = rect.bottom
@@ -339,32 +349,36 @@ class PhysicsSystem(ecs.System):
                             if (disap := ecs.try_component(ent_id, Disappear)):
                                 disap.last_created = ticks()
 
-                        tr.vel[1] = 0
+                        tr.vel.y = 0
                 
                 # horizontal movement
-                hitbox.x += tr.vel[0] * dt
+                tr.vel.x += tr.acc[0] * dt * 0.5
+                #
+                hitbox.x += tr.vel.x * dt
+                #
+                tr.vel.x += tr.acc[0] * dt * 0.5
 
                 # access cached collision blocks
                 for rect in tr.last_blocks_around:
                     if hitbox.colliderect(rect):
-                        if tr.vel[0] > 0:
+                        if tr.vel.x > 0:
                             hitbox.right = rect.left
                         else:
                             hitbox.left = rect.right
                         # stop the horizontal movement if projectile hits a wall
                         # if ecs.has_component(ent_id, Projectile):
-                        #     tr.vel[0] = 0
+                        #     tr.vel.x = 0
             
             # jump over obstacles if it is a mob
-            if ecs.has_component(ent_id, Mob):
+            if ecs.has_component(ent_id, Mob) and not ecs.has_component(ent_id, NoJump):
                 # extended displacement range for jumping because rectangle is more in front
-                x_disp_ext = ceil(abs(tr.vel[0] / BS)) + ceil(hitbox.width / 2 / BS)
+                x_disp_ext = ceil(abs(tr.vel.x / BS)) + ceil(hitbox.width / 2 / BS)
                 range_x_ext = (-x_disp_ext, x_disp_ext)
-                y_disp_ext = ceil(abs(tr.vel[1] / BS)) + ceil(hitbox.height / 2 / BS)
+                y_disp_ext = ceil(abs(tr.vel.y / BS)) + ceil(hitbox.height / 2 / BS)
                 range_y_ext = (-y_disp_ext, y_disp_ext)
 
                 o = 20
-                extended_rect = hitbox.inflate(o * 2, 0).move(o * sign(tr.vel[0]), -5)
+                extended_rect = hitbox.inflate(o * 2, 0).move(o * sign(tr.vel.x), -5)
                 if hitboxes:
                     pgb.draw_rect(self.display, (120, 120, 120), extended_rect.move(-scroll[0], -scroll[1]), 1)
                 for rect in self.world.get_blocks_around(extended_rect, range_x=range_x_ext, range_y=range_y_ext):
@@ -373,7 +387,25 @@ class PhysicsSystem(ecs.System):
                         pgb.draw_rect(self.display, GREEN, rect.move(-scroll[0], -scroll[1]), 1)
                     # jump the mob because it sees a block in front of it
                     if extended_rect.colliderect(rect):
-                        tr.vel[1] = -2
+                        tr.vel.y = -2
+
+
+class BeeSystem(ecs.System):
+    def __init__(self, player):
+        self.player = player
+
+    def process(self, chunks):
+        for ent_id, chunk, (bee, tr, hitbox) in ecs.get_components(Bee, Transform, Hitbox, chunks=chunks):
+            dir_vec = Vec2(
+                self.player.rect.centerx - hitbox.centerx,
+                self.player.rect.centery - hitbox.centery
+            ).normalize() * 0.5
+            tr.acc[0] = dir_vec.x
+            tr.acc[1] = dir_vec.y
+            max_vel = 1
+            if tr.vel.length() >= max_vel:
+                tr.vel = tr.vel.normalize() * max_vel
+            
 
 
 class ChunkRepositioningSystem(ecs.System):
@@ -405,7 +437,7 @@ class RenderSystem(ecs.System):
     def __init__(self, display):
         self.display = display
             
-    def process(self, scroll, hitboxes, window, chunks):
+    def process(self, scroll, hitboxes, window, dt, chunks):
         num_rendered = 0
         blit_batch: tuple[pygame.Surface, pygame.Rect] = []
 
@@ -420,7 +452,7 @@ class RenderSystem(ecs.System):
                 hitbox.size = sprite.hitbox_size
                             
                 # correctly set the sprite index
-                sprite.anim += sprite.anim_speed
+                sprite.anim += sprite.anim_speed * dt
                 try:
                     sprite.images[int(sprite.anim)]
                 except IndexError:
@@ -430,9 +462,10 @@ class RenderSystem(ecs.System):
                 hitbox.size = (sprite.images[0].width, sprite.images[0].height)
 
             # check if entity has transform component
+            render_offset = [0, 0]
             if (tr := ecs.try_component(ent_id, Transform)):
                 # if walking other way, flip the sprite
-                if tr.vel[0] < 0:
+                if tr.vel.x < 0:
                     image = sprite.fimages[int(sprite.anim)]
                 else:
                     # don't flip
@@ -441,18 +474,29 @@ class RenderSystem(ecs.System):
                 # rotate it when needed
                 tr.rot += tr.rot_vel
                 if tr.flag & TransformFlags.ARROW:
-                    tr.rot = degrees(atan2(tr.vel[1], tr.vel[0]))
+                    tr.rot = degrees(atan2(tr.vel.y, tr.vel.x))
                 if tr.rot != 0 or True:
                     pgb.rotate_ip(image, tr.rot)
                 else:
                     # else, just normal image
                     image = sprite.images[int(sprite.anim)]
+                
+                # apply the sine wave
+                m = 0.01
+                render_offset = [
+                    sin(ticks() * m) * tr.sines[0],
+                    sin(ticks() * m) * tr.sines[1],
+                ]
          
             # scroll the hitbox to correct screen position
             scrolled_hitbox = hitbox.move(-scroll[0], -scroll[1])
 
             # weird ass profiler can't do math idek at this point vro
             blit_rect = sprite.images[int(sprite.anim)].get_rect(center=scrolled_hitbox.center).move(0, sprite.offset)
+
+            # apply the sine offset
+            blit_rect.x += render_offset[0]
+            blit_rect.y += render_offset[1]
 
             # check if entity is visible on the screen
             if not (0 <= blit_rect.right <= window.width + blit_rect.width and 0 <= blit_rect.bottom <= window.height + blit_rect.height):
@@ -488,10 +532,10 @@ class PlayerFollowerSystem(ecs.System):
         for ent_id, chunk, (pf, tr, hitbox) in ecs.get_components(PlayerFollower, Transform, Hitbox, chunks=chunks):
             if pf.started_following:
                 if ticks() - pf.last_followed >= pf.follow_delay:
-                    if hitbox.centerx > self.player.rect.centerx and tr.vel[0] > 0:
-                        tr.vel[0] *= -1
-                    elif hitbox.centerx < self.player.rect.centerx and tr.vel[0] < 0:
-                        tr.vel[0] *= -1
+                    if hitbox.centerx > self.player.rect.centerx and tr.vel.x > 0:
+                        tr.vel.x *= -1
+                    elif hitbox.centerx < self.player.rect.centerx and tr.vel.x < 0:
+                        tr.vel.x *= -1
                     pf.started_following = False
             else:
                 pf.last_followed = ticks()
@@ -504,18 +548,20 @@ class DebugSystem(ecs.System):
             
     def process(self, scroll, chunks):
         for ent_id, chunk, (flags, tr, health) in ecs.get_components(DebugFlag, Transform, Health, chunks=chunks):
-            blit_pos = (tr.pos[0] - scroll[0], tr.pos[1] - scroll[1])
+            blit_pos = (tr.pos.x - scroll[0], tr.pos.y - scroll[1])
             if flags & DebugFlags.SHOW_CHUNK:
                 pgb.write(self.display, "center", chunk, fonts.orbitron[20], BROWN, blit_pos[0], blit_pos[1] - 20)
 
 
-class CollisionPlayerEntitySystem(ecs.System):
+class CollisionSystem(ecs.System):
     def __init__(self, player):
         self.player = player
     
-    def take_damage(self, tr, mob, health, damage):
-        # damage the mob
-        tr.vel[1] = -1.8
+    def take_damage(self, ent_id, tr, mob, health, damage):
+        # check if it mob should flinch
+        if ecs.has_component(ent_id, Flinch):
+            tr.vel.y = -1.8
+        
         mob.state = MobState.FRANTIC
         mob.last_frantic = ticks()
         mob.last_frantic_twitch = ticks()
@@ -527,7 +573,7 @@ class CollisionPlayerEntitySystem(ecs.System):
             for p_ent_id, p_chunk, (p_tr, p_hitbox, proj) in ecs.get_components(Transform, Hitbox, Projectile, chunks=chunks):
                 if p_tr.active:
                     if hitbox.colliderect(p_hitbox):
-                        self.take_damage(tr, mob, health, proj.damage)
+                        self.take_damage(ent_id, tr, mob, health, proj.damage)
                         #
                         if not proj.pierce:
                             ecs.delete_entity(p_ent_id, p_chunk)
@@ -539,7 +585,7 @@ class MobSystem(ecs.System):
             if mob.state == MobState.FRANTIC:
                 # twitch the frantic
                 if ticks() - mob.last_frantic_twitch >= rand(200, 700):
-                    tr.vel[0] = choice((-1, 1)) * tr.def_vel[0] * 2.2
+                    tr.vel.x = choice((-1, 1)) * tr.def_vel[0]
                     mob.last_frantic_twitch = ticks()
                 
                 # finish the frantic
@@ -556,16 +602,16 @@ class DamageTextSystem(ecs.System):
         for ent_id, chunk, (tr, dam) in ecs.get_components(Transform, DamageText, chunks=chunks):
             # init the offset
             if not dam.inited:
-                dam.offset = tr.pos[1] - dam.max_y
+                dam.offset = tr.pos.y - dam.max_y
                 dam.inited = True
             # move the text up
-            tr.pos[1] += (dam.max_y - tr.pos[1]) * 0.01
+            tr.pos.y += (dam.max_y - tr.pos.y) * 0.01
             # apply translusence and destroy when needed
-            dam.img.set_alpha(((tr.pos[1] - dam.max_y) / dam.offset) * 255)
+            dam.img.set_alpha(((tr.pos.y - dam.max_y) / dam.offset) * 255)
             if dam.img.get_alpha() <= 10:
                 self.delete(0, ent_id, chunk)
             # render the font
-            blit_pos = [tr.pos[0] - scroll[0], tr.pos[1] - scroll[1]]
+            blit_pos = [tr.pos.x - scroll[0], tr.pos.y - scroll[1]]
             self.display.blit(dam.img, blit_pos)
 
 
@@ -577,9 +623,8 @@ class DropSystem(ecs.System):
     def process(self, chunks):
         for ent_id, chunk, (drop, hitbox) in ecs.get_components(Drop, Hitbox, chunks=chunks):
             if hitbox.colliderect(self.player.rect):
-                if self.player.inventory.can_add:
-                    self.player.inventory.add(drop.block, 1)
-                    ecs.delete_entity(ent_id, chunk)
+                self.player.inventory.add(drop.block, 1)
+                ecs.delete_entity(ent_id, chunk)
 
 
 class HealthDisplaySystem(ecs.System):
@@ -598,8 +643,8 @@ class HealthDisplaySystem(ecs.System):
                         for _ in range(amount):
                             ecs.create_entity(
                                 Transform(
-                                    [0, 0],
-                                    [randf(-0.5, 0.5), -randf(3, 4)],
+                                    Vec2(0, 0),
+                                    Vec2(randf(-0.5, 0.5), -randf(3, 4)),
                                     gravity=glob.gravity * 0.5,
                                     flag=TransformFlag(TransformFlags.BLOCK_HALT),
                                 ),
@@ -620,7 +665,7 @@ class HealthDisplaySystem(ecs.System):
                 # display the health bar
                 bg_rect = pygame.Rect(0, 0, 60, 8)
                 bg_rect.midtop = (hitbox.centerx - scroll[0], hitbox.y - 20 - scroll[1])
-                pgb.fill_rect(self.display, WHITE, bg_rect)
+                # pgb.fill_rect(self.display, WHITE, bg_rect)
                 pgb.draw_rect(self.display, BLACK, bg_rect)
                 hl_rect = bg_rect.inflate(-4, -4)
                 hl_rect.width *= health.value / health.max

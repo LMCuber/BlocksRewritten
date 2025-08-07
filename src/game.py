@@ -33,15 +33,17 @@ class Game:
         self.world = world.World(menu, **self.config["world"])
         self.player = player.Player(self, self.world, menu)
         self.fake_scroll = [0, 0]
+        self.state = States.PLAY
+        self.substate = Substates.PLAY
+        # statistics
         self.scroll = [0, 0]
         self.last_start = ticks()
         self.last_frame = ticks()
-        self.state = States.PLAY
-        self.substate = Substates.PLAY
         self.disable_input = False
         self.num_rendered_entities = 0
         self.num_frames = 0
         self.dt = 1
+        self.frame_graph = []
         # joystick
         self.joystick = joystick.JoystickManager()
         # UI / UX
@@ -58,28 +60,32 @@ class Game:
         return BLACK if self.scroll[1] < 220 else WHITE
     
     def init_systems(self):
+        # game systems
         self.chunk_repositioning_system = ChunkRepositioningSystem()
-        self.render_system = RenderSystem(window.display)
         self.physics_system = PhysicsSystem(window.display, self.world)
-        self.player_follower_system = PlayerFollowerSystem(window.display, self.player)
-        # self.debug_system = DebugSystem(window.display)
-        self.mob_system = MobSystem()
-        self.collision_player_entity_system = CollisionPlayerEntitySystem(self.player)
         self.damage_text_system = DamageTextSystem(window.display)
         self.health_display_system = HealthDisplaySystem(window.display)
-        self.drop_system = DropSystem(window.display, self.player)
-        self.disappear_system = DisappearSystem()
+
+        # world systems
+        self.render_system = RenderSystem(window.display)
+
+        # uniform systems without priority
+        ecs.add_systems(
+            PlayerFollowerSystem(window.display, self.player),
+            MobSystem(),
+            CollisionSystem(self.player),
+            DropSystem(window.display, self.player),
+            DisappearSystem(),
+            BeeSystem(self.player),
+        )
     
     def process_systems(self, processed_chunks):
         # Render system gets processed at world.py
-        self.chunk_repositioning_system    .process(chunks=processed_chunks)
-        self.physics_system                .process(self.scroll, menu.hitboxes, menu.collisions, self.dt, chunks=processed_chunks)
-        self.player_follower_system        .process(chunks=processed_chunks)
-        self.mob_system                    .process(chunks=processed_chunks)
-        self.collision_player_entity_system.process(chunks=processed_chunks)
-        self.drop_system                   .process(chunks=processed_chunks)
-        self.health_display_system         .process(self.scroll, chunks=processed_chunks)
-        self.disappear_system              .process(chunks=processed_chunks)
+        self.chunk_repositioning_system.process(chunks=processed_chunks)
+        self.physics_system            .process(self.scroll, menu.hitboxes, menu.collisions, self.dt, chunks=processed_chunks)
+        self.health_display_system     .process(self.scroll, chunks=processed_chunks)
+        
+        ecs.process_systems(chunks=processed_chunks)
     
     def send_data_to_shader(self):
         # send textures to the shader
@@ -114,6 +120,7 @@ class Game:
         self.scroll[1] = int(self.fake_scroll[1])
     
     def quit(self, timer_msg=False):
+        self.world.save()
         elapsed = ticks() - self.last_start
         if timer_msg:
             print(Fore.GREEN
@@ -206,10 +213,15 @@ Runtime:
                 pgb.write(window.display, "topleft", params, fonts.orbitron[12], self.stat_color, 5, 30)
 
             # display debugging / performance stats
-            pgb.write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 110)
-            pgb.write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 130)
-            pgb.write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 150)
-            pgb.write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 170)
+            pgb.write(window.display, "topleft", f"blocks : {num_blocks} ({self.world.num_hor_chunks} x {self.world.num_ver_chunks} chunks)", fonts.orbitron[15], self.stat_color, 5, 140)
+            pgb.write(window.display, "topleft", f"entities : {self.num_rendered_entities}", fonts.orbitron[15], self.stat_color, 5, 160)
+            pgb.write(window.display, "topleft", f"State: {self.state}", fonts.orbitron[15], self.stat_color, 5, 180)
+            pgb.write(window.display, "topleft", f"Substate: {self.substate}", fonts.orbitron[15], self.stat_color, 5, 200)
+
+            self.frame_graph.insert(0, int(self.clock.get_fps()))
+            for i, fps in enumerate(self.frame_graph):
+                pgb.draw_rect(window.display, ORANGE, (240 - i, 55 - fps / 165 * 40, 1, 1))
+                self.frame_graph = self.frame_graph[:110]
 
             # --- DO ALL RENDERING BEFORE THIS CODE BELOW ---
             if not window.gpu:
@@ -233,7 +245,7 @@ Runtime:
             if ticks() - self.last_start >= self.config["game"].get("timer", float("inf")):
                 self.quit(timer_msg=True)
             
-            # cap fps
+            # process frame data and cap FPS
             self.dt = self.clock.tick() / (1 / 165 * 1000) # normalized dt; 1 when perfectly stable
             if self.dt > 10:
                 self.dt = 10
